@@ -1,0 +1,267 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --nova-cream: #f5f1e9;
+    --nova-charcoal: #1a1a1a;
+
+    --background: oklch(0.965 0.012 85);
+    --foreground: oklch(0.205 0 0);
+
+    --card: oklch(0.99 0.008 85 / 0.72);
+    --card-foreground: oklch(0.205 0 0);
+
+    --popover: oklch(0.99 0.01 85 / 0.94);
+    --popover-foreground: oklch(0.205 0 0);
+
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.965 0.012 85);
+
+    --secondary: oklch(0.94 0.015 85);
+    --secondary-foreground: oklch(0.205 0 0);
+
+    --muted: oklch(0.94 0.012 85);
+    --muted-foreground: oklch(0.41 0.02 60);
+
+    --accent: oklch(0.93 0.02 85);
+    --accent-foreground: oklch(0.205 0 0);
+
+    --destructive: oklch(0.55 0.2 25);
+    --destructive-foreground: oklch(0.985 0 0);
+
+    --border: oklch(0.205 0 0 / 0.1);
+    --input: oklch(0.205 0 0 / 0.12);
+    --ring: oklch(0.45 0.02 60);
+
+    --radius: 0.875rem;
+
+    --glass-bg: rgb(245 241 233 / 78%);
+    --glass-bg-strong: rgb(245 241 233 / 88%);
+    --glass-border: rgb(255 255 255 / 52%);
+    --glass-highlight: rgb(255 255 255 / 35%);
+  }
+
+  .dark {
+    --background: oklch(0.19 0.01 60);
+    --foreground: oklch(0.96 0.01 85);
+
+    --card: oklch(0.24 0.015 60 / 0.65);
+    --card-foreground: oklch(0.96 0.01 85);
+
+    --popover: oklch(0.22 0.015 60 / 0.92);
+    --popover-foreground: oklch(0.96 0.01 85);
+
+    --primary: oklch(0.965 0.012 85);
+    --primary-foreground: oklch(0.205 0 0);
+
+    --secondary: oklch(0.28 0.02 60);
+    --secondary-foreground: oklch(0.96 0.01 85);
+
+    --muted: oklch(0.28 0.015 60);
+    --muted-foreground: oklch(0.72 0.02 70);
+
+    --accent: oklch(0.3 0.02 60);
+    --accent-foreground: oklch(0.96 0.01 85);
+
+    --destructive: oklch(0.63 0.18 25);
+    --destructive-foreground: oklch(0.985 0 0);
+
+    --border: oklch(0.96 0.01 85 / 0.12);
+    --input: oklch(0.96 0.01 85 / 0.14);
+    --ring: oklch(0.65 0.02 70);
+
+    --glass-bg: rgb(26 26 26 / 45%);
+    --glass-bg-strong: rgb(26 26 26 / 58%);
+    --glass-border: rgb(255 255 255 / 12%);
+    --glass-highlight: rgb(255 255 255 / 8%);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html[data-scroll-behavior="smooth"] {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Nova Nail Studio — Liquid Glass v2.0
+     translateZ(0) yok: aynı elemanda Tailwind translate (ör. modal -translate-x-1/2) ile tek transform mülkünde çakışır ve merkezleme bozulur. GPU ipucu: will-change + contain. */
+  .liquid-glass-v2,
+  .glass-surface,
+  .glass-surface-strong,
+  .glass-pill,
+  .glass-modal-surface {
+    will-change: backdrop-filter;
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    background: rgba(255, 255, 255, 0.4);
+    contain: layout paint;
+    content-visibility: auto;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 1px 1px 0 rgba(255, 255, 255, 0.5),
+      inset -1px -1px 0 rgba(0, 0, 0, 0.05),
+      0 48px 120px -36px rgba(0, 0, 0, 0.03),
+      0 28px 72px -28px rgba(0, 0, 0, 0.03),
+      0 12px 36px -14px rgba(0, 0, 0, 0.02);
+  }
+
+  .glass-nav {
+    will-change: backdrop-filter;
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    background: rgba(255, 255, 255, 0.4);
+    contain: layout paint;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 1px 1px 0 rgba(255, 255, 255, 0.5),
+      inset -1px -1px 0 rgba(0, 0, 0, 0.05),
+      0 48px 120px -36px rgba(0, 0, 0, 0.03),
+      0 28px 72px -28px rgba(0, 0, 0, 0.03),
+      0 12px 36px -14px rgba(0, 0, 0, 0.02);
+  }
+
+  .glass-surface {
+    @apply rounded-2xl;
+  }
+
+  .glass-surface-strong {
+    @apply rounded-[1.35rem];
+    background: rgba(255, 255, 255, 0.44);
+  }
+
+  .glass-nav {
+    @apply rounded-2xl;
+    background: rgba(255, 255, 255, 0.38);
+  }
+
+  .glass-pill {
+    @apply rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground;
+    background: rgba(255, 255, 255, 0.42);
+  }
+
+  .glass-modal-surface {
+    @apply rounded-3xl;
+    background: rgba(255, 255, 255, 0.48);
+  }
+
+  .dark .liquid-glass-v2,
+  .dark .glass-surface,
+  .dark .glass-surface-strong,
+  .dark .glass-nav,
+  .dark .glass-pill,
+  .dark .glass-modal-surface {
+    background: rgba(28, 28, 31, 0.58);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 1px 1px 0 rgba(255, 255, 255, 0.1),
+      inset -1px -1px 0 rgba(0, 0, 0, 0.35),
+      0 48px 120px -36px rgba(0, 0, 0, 0.35),
+      0 28px 72px -28px rgba(0, 0, 0, 0.22),
+      0 12px 36px -14px rgba(0, 0, 0, 0.14);
+  }
+
+  /* Mobil: blur ~md (12px), masaüstü: tam liquid-glass blur */
+  @media (max-width: 767px) {
+    .liquid-glass-v2,
+    .glass-surface,
+    .glass-surface-strong,
+    .glass-nav,
+    .glass-pill,
+    .glass-modal-surface {
+      backdrop-filter: blur(12px) saturate(160%);
+      -webkit-backdrop-filter: blur(12px) saturate(160%);
+    }
+  }
+
+  /* Tailwind backdrop-blur*: GPU katmanı */
+  .backdrop-blur-none,
+  .backdrop-blur-sm,
+  .backdrop-blur,
+  .backdrop-blur-md,
+  .backdrop-blur-lg,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-3xl {
+    transform: translateZ(0);
+    will-change: backdrop-filter;
+    contain: paint;
+  }
+
+  @media (max-width: 767px) {
+    .backdrop-blur-xl,
+    .backdrop-blur-2xl,
+    .backdrop-blur-3xl {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+  }
+
+  /* Tailwind arbitrary backdrop-blur-[…] ve benzeri sınıflar */
+  [class*="backdrop-blur"]:where(:not(.backdrop-blur-none)) {
+    transform: translateZ(0);
+    will-change: backdrop-filter;
+    contain: paint;
+  }
+
+  .ambient-nova {
+    background-color: var(--nova-cream);
+    background-image:
+      radial-gradient(
+        1200px circle at 15% -10%,
+        rgb(255 255 255 / 55%),
+        transparent 55%
+      ),
+      radial-gradient(
+        900px circle at 95% 15%,
+        rgb(245 241 233 / 90%),
+        transparent 50%
+      ),
+      radial-gradient(
+        700px circle at 50% 100%,
+        rgb(26 26 26 / 5%),
+        transparent 45%
+      );
+  }
+
+  .ambient-nova-dark {
+    background-color: oklch(0.17 0.015 60);
+    background-image:
+      radial-gradient(
+        1000px circle at 20% 0%,
+        rgb(255 255 255 / 6%),
+        transparent 50%
+      ),
+      radial-gradient(
+        800px circle at 90% 20%,
+        rgb(245 241 233 / 4%),
+        transparent 45%
+      );
+  }
+
+  .grain-soft {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  }
+
+  .transition-glass {
+    @apply transition-[background-color,box-shadow,transform,backdrop-filter,-webkit-backdrop-filter] duration-300 ease-out;
+  }
+}

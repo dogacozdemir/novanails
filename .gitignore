@@ -1,0 +1,26 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+
+# PWA (generated at build)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/fallback-*.js
+
+# Env
+.env*.local
+.env
+
+# Supabase CLI cache (yerel)
+supabase/.temp/
+
+# Debug / OS
+.DS_Store
+npm-debug.log*
