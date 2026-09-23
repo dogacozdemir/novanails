@@ -67,6 +67,15 @@ export function MonthlyExportButton({ monthISO }: Props) {
           Net_Kar: payload.ozet.net_kar,
         },
       ]);
+      addJsonSheet(
+        workbook,
+        "Ödeme Yöntemleri",
+        payload.odeme_yontemleri.map((r) => ({
+          Yöntem: r.yontem,
+          İşlem_Sayısı: r.islem_sayisi,
+          Tutar: r.tutar,
+        }))
+      );
 
       const buf = await workbook.xlsx.writeBuffer();
       downloadBlob(`nova-finans-${monthISO}.xlsx`, buf);

@@ -11,8 +11,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   getDailyRevenueTotal,
   getMonthlyFinanceWithComparison,
+  getPaymentMethodBreakdown,
   type FinanceTotals,
 } from "@/app/dashboard/actions";
+import { PaymentMethodBreakdown } from "@/components/finance/payment-method-breakdown";
+import type { PaymentMethodSlice } from "@/lib/payment-method-summary";
 import { listExpenses, type ExpenseRow } from "@/app/finance/actions";
 import { MonthOverMonthHint } from "@/components/dashboard/month-over-month-hint";
 
@@ -33,7 +36,12 @@ const MonthlyExportButton = dynamic(
 );
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatDateTRLong, istanbulDateISO, istanbulYearMonthISO } from "@/lib/time";
+import {
+  formatDateTRLong,
+  formatMonthTRLong,
+  istanbulDateISO,
+  istanbulYearMonthISO,
+} from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 function formatMoney(n: number) {
@@ -51,6 +59,8 @@ export function FinanceBoard() {
     previous: FinanceTotals;
   } | null>(null);
   const [dailyRevenue, setDailyRevenue] = useState(0);
+  const [methodSlices, setMethodSlices] = useState<PaymentMethodSlice[]>([]);
+  const [methodTotal, setMethodTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,17 +70,22 @@ export function FinanceBoard() {
     setError(null);
     try {
       const todayIso = istanbulDateISO();
-      const [data, snap, daily] = await Promise.all([
+      const [data, snap, daily, methods] = await Promise.all([
         listExpenses(monthISO),
         getMonthlyFinanceWithComparison(monthISO),
         getDailyRevenueTotal(todayIso),
+        getPaymentMethodBreakdown(monthISO),
       ]);
       setRows(data);
       setTotals(snap);
       setDailyRevenue(daily);
+      setMethodSlices(methods.slices);
+      setMethodTotal(methods.total);
     } catch (e) {
       setTotals(null);
       setDailyRevenue(0);
+      setMethodSlices([]);
+      setMethodTotal(0);
       setError(e instanceof Error ? e.message : "Liste alınamadı");
     } finally {
       setLoading(false);
@@ -211,6 +226,13 @@ export function FinanceBoard() {
           ) : null}
         </div>
       </section>
+
+      <PaymentMethodBreakdown
+        slices={methodSlices}
+        total={methodTotal}
+        loading={loading}
+        subtitle={formatMonthTRLong(monthISO)}
+      />
 
       <section className="glass-surface-strong overflow-hidden rounded-3xl">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--glass-border)] px-6 py-4">

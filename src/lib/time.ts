@@ -139,6 +139,15 @@ export function formatDateTRLong(isoDate: string) {
   }).format(dt);
 }
 
+/** Örn. Eylül 2026 — ay başlıkları için (YYYY-MM) */
+export function formatMonthTRLong(monthISO: string) {
+  const [y, m] = monthISO.split("-").map(Number);
+  return new Intl.DateTimeFormat("tr-TR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(y, (m ?? 1) - 1, 1));
+}
+
 /** İstanbul saati ile bugünün tarihi YYYY-MM-DD */
 export function istanbulDateISO(d = new Date()) {
   return new Intl.DateTimeFormat("sv-SE", {

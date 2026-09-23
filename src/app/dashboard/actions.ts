@@ -6,6 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { expenseCategoryLabel } from "@/lib/expense-category-labels";
 import { addMoney, subtractMoney, sumMoney } from "@/lib/money";
 import {
+  summarizeByPaymentMethod,
+  type PaymentMethodSlice,
+} from "@/lib/payment-method-summary";
+import {
   dayRecordedRangeUtc,
   istanbulDateISO,
   monthExpenseDateRange,
@@ -100,6 +104,28 @@ export async function getDailyRevenueTotal(dateISO: string): Promise<number> {
 
   if (error) throw error;
   return sumMoney((rows ?? []).map((r) => Number(r.amount)));
+}
+
+/**
+ * Ay içi tahsilatların ödeme yöntemine göre dağılımı (Finans).
+ * Kaynak "Toplam ciro" ile aynı: revenue_entries, recorded_at (İstanbul ayı).
+ */
+export async function getPaymentMethodBreakdown(monthISO: string): Promise<{
+  slices: PaymentMethodSlice[];
+  total: number;
+}> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { startIso, endIso } = monthRecordedRangeUtc(monthISO);
+
+  const { data: rows, error } = await supabase
+    .from("revenue_entries")
+    .select("amount, payment_method")
+    .gte("recorded_at", startIso)
+    .lt("recorded_at", endIso);
+
+  if (error) throw error;
+  return summarizeByPaymentMethod(rows ?? []);
 }
 
 /** Seçilen ay ve bir önceki ay — KPI kartları için gerçek MoM karşılaştırması. */

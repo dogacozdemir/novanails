@@ -5,12 +5,37 @@ declare module "lucide-react/dist/esm/icons/arrow-left.mjs" {
   const Icon: LucideIcon;
   export default Icon;
 }
+declare module "lucide-react/dist/esm/icons/banknote.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/calendar-check.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/calendar-clock.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
 declare module "lucide-react/dist/esm/icons/calendar-days.mjs" {
   import type { LucideIcon } from "lucide-react";
   const Icon: LucideIcon;
   export default Icon;
 }
+declare module "lucide-react/dist/esm/icons/calendar-range.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
 declare module "lucide-react/dist/esm/icons/check-circle-2.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/chevron-down.mjs" {
   import type { LucideIcon } from "lucide-react";
   const Icon: LucideIcon;
   export default Icon;
@@ -21,6 +46,11 @@ declare module "lucide-react/dist/esm/icons/chevron-right.mjs" {
   export default Icon;
 }
 declare module "lucide-react/dist/esm/icons/chevrons-up-down.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/circle-help.mjs" {
   import type { LucideIcon } from "lucide-react";
   const Icon: LucideIcon;
   export default Icon;
@@ -40,7 +70,17 @@ declare module "lucide-react/dist/esm/icons/clock.mjs" {
   const Icon: LucideIcon;
   export default Icon;
 }
+declare module "lucide-react/dist/esm/icons/credit-card.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
 declare module "lucide-react/dist/esm/icons/download.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/eye.mjs" {
   import type { LucideIcon } from "lucide-react";
   const Icon: LucideIcon;
   export default Icon;
@@ -50,7 +90,22 @@ declare module "lucide-react/dist/esm/icons/eye-off.mjs" {
   const Icon: LucideIcon;
   export default Icon;
 }
-declare module "lucide-react/dist/esm/icons/eye.mjs" {
+declare module "lucide-react/dist/esm/icons/filter.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/landmark.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/layout-grid.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/list.mjs" {
   import type { LucideIcon } from "lucide-react";
   const Icon: LucideIcon;
   export default Icon;
@@ -120,6 +175,11 @@ declare module "lucide-react/dist/esm/icons/trash-2.mjs" {
   const Icon: LucideIcon;
   export default Icon;
 }
+declare module "lucide-react/dist/esm/icons/tree-palm.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
 declare module "lucide-react/dist/esm/icons/trending-down.mjs" {
   import type { LucideIcon } from "lucide-react";
   const Icon: LucideIcon;
@@ -130,17 +190,22 @@ declare module "lucide-react/dist/esm/icons/trending-up.mjs" {
   const Icon: LucideIcon;
   export default Icon;
 }
+declare module "lucide-react/dist/esm/icons/user.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
+declare module "lucide-react/dist/esm/icons/user-minus.mjs" {
+  import type { LucideIcon } from "lucide-react";
+  const Icon: LucideIcon;
+  export default Icon;
+}
 declare module "lucide-react/dist/esm/icons/user-plus.mjs" {
   import type { LucideIcon } from "lucide-react";
   const Icon: LucideIcon;
   export default Icon;
 }
 declare module "lucide-react/dist/esm/icons/user-round.mjs" {
-  import type { LucideIcon } from "lucide-react";
-  const Icon: LucideIcon;
-  export default Icon;
-}
-declare module "lucide-react/dist/esm/icons/user.mjs" {
   import type { LucideIcon } from "lucide-react";
   const Icon: LucideIcon;
   export default Icon;

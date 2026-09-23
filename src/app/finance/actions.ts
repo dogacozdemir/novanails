@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { ExpenseCategory } from "@/types/database";
 import { expenseCategoryLabel } from "@/lib/expense-category-labels";
 import { roundMoney, subtractMoney, sumMoney } from "@/lib/money";
+import { paymentMethodLabel } from "@/lib/payment-method-labels";
+import { summarizeByPaymentMethod } from "@/lib/payment-method-summary";
 import {
   LIMITS,
   sanitizeOptionalNotes,
@@ -83,7 +85,7 @@ export async function getMonthlyExportPayload(monthISO: string) {
   const [{ data: revenues }, { data: expenseRows }] = await Promise.all([
     supabase
       .from("revenue_entries")
-      .select("amount, recorded_at, appointment_id, note")
+      .select("amount, recorded_at, appointment_id, note, payment_method")
       .gte("recorded_at", startIso)
       .lt("recorded_at", endIso)
       .order("recorded_at", { ascending: true }),
@@ -97,14 +99,21 @@ export async function getMonthlyExportPayload(monthISO: string) {
 
   const revSum = sumMoney((revenues ?? []).map((r) => Number(r.amount)));
   const expSum = sumMoney((expenseRows ?? []).map((r) => Number(r.amount)));
+  const byMethod = summarizeByPaymentMethod(revenues ?? []);
 
   return {
     monthISO,
     revenues: (revenues ?? []).map((r) => ({
       tarih: r.recorded_at?.slice(0, 19).replace("T", " ") ?? "",
       tutar: Number(r.amount),
+      odeme_yontemi: paymentMethodLabel(r.payment_method),
       randevu_id: r.appointment_id,
       not: r.note ?? "",
+    })),
+    odeme_yontemleri: byMethod.slices.map((s) => ({
+      yontem: s.label,
+      islem_sayisi: s.count,
+      tutar: s.amount,
     })),
     expenses: (expenseRows ?? []).map((r) => ({
       tarih: r.expense_date,
