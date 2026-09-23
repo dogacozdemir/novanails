@@ -24,3 +24,6 @@ supabase/.temp/
 # Debug / OS
 .DS_Store
 npm-debug.log*
+
+# TypeScript artımlı derleme önbelleği
+*.tsbuildinfo
