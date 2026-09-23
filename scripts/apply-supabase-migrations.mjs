@@ -24,6 +24,11 @@ const MIGRATION_FILES = [
   "20260429310000_business_rules_profiles_services_revenue.sql",
   "20260429320000_profiles_staff_link.sql",
   "20260429450000_rls_finance_strict.sql",
+  "20260505120000_enforce_appointment_overlap_planned_duration.sql",
+  "20260506000000_staff_time_off_and_search.sql",
+  "20260507200000_liberate_cancelled_slots.sql",
+  "20260923120000_profiles_rls_admin_only.sql",
+  "20260923130000_payment_corrections.sql",
 ];
 
 /** Objeler zaten varsa (eski ortam / manuel kurulum) çalıştırmadan işaretler. */
@@ -131,6 +136,65 @@ async function migrationAlreadyPresent(sql, filename) {
           WHERE schemaname = 'public'
             AND tablename = 'revenue_entries'
             AND policyname = 'Admin full access revenue_entries'
+        ) AS ok
+      `;
+      return r.ok;
+    }
+    case "20260505120000_enforce_appointment_overlap_planned_duration.sql": {
+      const [r] = await sql`
+        SELECT EXISTS (
+          SELECT 1
+          FROM pg_proc p
+          JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname = 'public'
+            AND p.proname = 'enforce_appointment_staff_overlap'
+            AND pg_get_functiondef(p.oid) LIKE '%NULLIF(NEW.planned_duration, 0)%'
+        ) AS ok
+      `;
+      return r.ok;
+    }
+    case "20260506000000_staff_time_off_and_search.sql": {
+      const [r] = await sql`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'staff_time_off'
+        ) AS ok
+      `;
+      return r.ok;
+    }
+    case "20260507200000_liberate_cancelled_slots.sql": {
+      const [r] = await sql`
+        SELECT EXISTS (
+          SELECT 1 FROM pg_indexes
+          WHERE schemaname = 'public'
+            AND indexname = 'appointments_staff_slot_active_unique'
+        ) AS ok
+      `;
+      return r.ok;
+    }
+    case "20260923120000_profiles_rls_admin_only.sql": {
+      const [r] = await sql`
+        SELECT EXISTS (
+          SELECT 1 FROM pg_policies
+          WHERE schemaname = 'public'
+            AND tablename = 'profiles'
+            AND policyname = 'Profiles select own or admin'
+        ) AS ok
+      `;
+      return r.ok;
+    }
+    case "20260923130000_payment_corrections.sql": {
+      const [r] = await sql`
+        SELECT (
+          EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'payment_corrections'
+          )
+          AND EXISTS (
+            SELECT 1 FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.proname = 'correct_appointment_payment'
+          )
         ) AS ok
       `;
       return r.ok;
