@@ -8,6 +8,8 @@ import Phone from "lucide-react/dist/esm/icons/phone.mjs";
 import Plus from "lucide-react/dist/esm/icons/plus.mjs";
 import Send from "lucide-react/dist/esm/icons/send.mjs";
 import Slash from "lucide-react/dist/esm/icons/slash.mjs";
+import Palmtree from "lucide-react/dist/esm/icons/tree-palm.mjs";
+import UserMinus from "lucide-react/dist/esm/icons/user-minus.mjs";
 import dynamic from "next/dynamic";
 import { m } from "framer-motion";
 import Image from "next/image";
@@ -22,8 +24,6 @@ import {
   useState,
   useTransition,
 } from "react";
-
-import { Palmtree, UserMinus } from "lucide-react";
 
 import {
   getBoardData,
@@ -54,7 +54,7 @@ import {
   CALENDAR_HOUR_MARKERS,
   calendarDisplayDurationMinutes,
   formatDateTRLong,
-  localDateISO,
+  istanbulDateISO,
   normalizeDisplayTime,
   parseTimeToMinutesFromMidnight,
   trackPercentToRoundedTime,
@@ -253,7 +253,7 @@ export function AppointmentsBoard({
 
   const [viewMode, setViewMode] = useState<AppointmentViewMode>("board");
   const [dateRange, setDateRange] = useState(() => {
-    const d = localDateISO();
+    const d = istanbulDateISO();
     return { start: d, end: d };
   });
   const [filterStaffIds, setFilterStaffIds] = useState<string[]>([]);
@@ -270,7 +270,7 @@ export function AppointmentsBoard({
 
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
 
-  const [createDateISO, setCreateDateISO] = useState(() => localDateISO());
+  const [createDateISO, setCreateDateISO] = useState(() => istanbulDateISO());
 
   const [staff, setStaff] = useState<StaffBrief[]>([]);
   const [customers, setCustomers] = useState<CustomerBrief[]>([]);
@@ -1129,12 +1129,12 @@ export function AppointmentsBoard({
           description={
             isStaffSession
               ? "Yöneticinizin hesabınızı bir uzman kaydıyla eşleştirmesi gerekir."
-              : "Salon verisi için Ayarlar’dan başlangıç yükleme yapabilir veya Hizmetler’den uzman ekleyebilirsiniz."
+              : "Ayarlar → Uzmanlar sekmesinden uzman ekleyebilir veya Kurulum sekmesinden başlangıç verisini yükleyebilirsiniz."
           }
         >
           {!isStaffSession ? (
             <Link
-              href="/settings"
+              href="/settings?tab=staff"
               className={cn(
                 buttonVariants({ variant: "default" }),
                 "h-11 rounded-xl px-6 shadow-diffuse"

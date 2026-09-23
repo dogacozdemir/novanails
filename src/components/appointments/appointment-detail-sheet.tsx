@@ -1,6 +1,9 @@
 "use client";
 
-import { CalendarCheck, ChevronDown, Trash2, X } from "lucide-react";
+import CalendarCheck from "lucide-react/dist/esm/icons/calendar-check.mjs";
+import ChevronDown from "lucide-react/dist/esm/icons/chevron-down.mjs";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2.mjs";
+import X from "lucide-react/dist/esm/icons/x.mjs";
 import CheckCircle2 from "lucide-react/dist/esm/icons/check-circle-2.mjs";
 import ClipboardCheck from "lucide-react/dist/esm/icons/clipboard-check.mjs";
 import Clock from "lucide-react/dist/esm/icons/clock.mjs";
@@ -962,7 +965,7 @@ export function AppointmentDetailSheet({
                   <p className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-3 text-xs text-amber-950 dark:text-amber-50">
                     Uzman yok.{" "}
                     <Link
-                      href="/settings"
+                      href="/settings?tab=staff"
                       className="font-semibold underline underline-offset-2"
                     >
                       Ayarlardan
@@ -1103,7 +1106,7 @@ export function AppointmentDetailSheet({
                   <p className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-3 text-xs text-amber-950 dark:text-amber-50">
                     Hizmet yok.{" "}
                     <Link
-                      href="/services"
+                      href="/settings?tab=services"
                       className="font-semibold underline underline-offset-2"
                     >
                       Hizmetler

@@ -1,6 +1,9 @@
 "use client";
 
-import { CalendarCheck, Clock, Loader2, X } from "lucide-react";
+import CalendarCheck from "lucide-react/dist/esm/icons/calendar-check.mjs";
+import Clock from "lucide-react/dist/esm/icons/clock.mjs";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2.mjs";
+import X from "lucide-react/dist/esm/icons/x.mjs";
 import * as Dialog from "@radix-ui/react-dialog";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -271,10 +274,10 @@ export function AppointmentCreateDialog({
                   ) : (
                     <>
                       <Link
-                        href="/settings"
+                        href="/settings?tab=staff"
                         className="font-semibold underline underline-offset-2 hover:text-foreground"
                       >
-                        Salon ayarları
+                        Ayarlar → Uzmanlar
                       </Link>
                       &nbsp;üzerinden uzman ekleyin.
                     </>
@@ -420,10 +423,10 @@ export function AppointmentCreateDialog({
                   ) : (
                     <>
                       <Link
-                        href="/services"
+                        href="/settings?tab=services"
                         className="font-semibold underline underline-offset-2 hover:text-foreground"
                       >
-                        Salon ayarları → Hizmetler
+                        Ayarlar → Hizmetler
                       </Link>{" "}
                       sekmesinden hizmet ekleyin; liste Supabase&apos;teki güncel
                       kayıtlardan gelir.

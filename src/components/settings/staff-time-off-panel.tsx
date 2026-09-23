@@ -1,14 +1,12 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  Loader2,
-  Palmtree,
-  Plus,
-  Trash2,
-  UserMinus,
-  X,
-} from "lucide-react";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2.mjs";
+import Palmtree from "lucide-react/dist/esm/icons/tree-palm.mjs";
+import Plus from "lucide-react/dist/esm/icons/plus.mjs";
+import Trash2 from "lucide-react/dist/esm/icons/trash-2.mjs";
+import UserMinus from "lucide-react/dist/esm/icons/user-minus.mjs";
+import X from "lucide-react/dist/esm/icons/x.mjs";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -24,7 +22,7 @@ import {
   NOVA_GLASS_DIALOG_OVERLAY,
   NOVA_GLASS_DIALOG_PANEL,
 } from "@/lib/glass-dialog-classes";
-import { formatDateTRLong, localDateISO } from "@/lib/time";
+import { formatDateTRLong, istanbulDateISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { StaffTimeOffType } from "@/types/database";
 
@@ -43,18 +41,18 @@ export function StaffTimeOffPanel({ initialStaff, loadError }: Props) {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStaff, setDialogStaff] = useState<StaffBrief | null>(null);
-  const [date, setDate] = useState(() => localDateISO());
+  const [date, setDate] = useState(() => istanbulDateISO());
   const [start, setStart] = useState("09:00");
   const [end, setEnd] = useState("18:00");
   const [offType, setOffType] = useState<StaffTimeOffType>("leave");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const todayISO = localDateISO();
+  const todayISO = istanbulDateISO();
 
   const openForStaff = (s: StaffBrief) => {
     setDialogStaff(s);
-    setDate(localDateISO());
+    setDate(istanbulDateISO());
     setStart("09:00");
     setEnd("18:00");
     setOffType("leave");
@@ -63,7 +61,7 @@ export function StaffTimeOffPanel({ initialStaff, loadError }: Props) {
   };
 
   const resetDialogFields = () => {
-    setDate(localDateISO());
+    setDate(istanbulDateISO());
     setStart("09:00");
     setEnd("18:00");
     setOffType("leave");
@@ -125,7 +123,7 @@ export function StaffTimeOffPanel({ initialStaff, loadError }: Props) {
           Uzman bulunamadı
         </p>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Önce Kurulum sekmesinden başlangıç uzmanlarını ekleyin.
+          Önce Uzmanlar sekmesinden uzman ekleyin veya Kurulum sekmesinden başlangıç uzmanlarını yükleyin.
         </p>
       </section>
     );

@@ -1,9 +1,9 @@
-import Menu from "lucide-react/dist/esm/icons/menu.mjs";
 import Image from "next/image";
 import Link from "next/link";
 
+import { MobileNavMenu } from "@/components/layout/mobile-nav-menu";
 import { UserMenu } from "@/components/layout/user-menu";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import type { UserRole } from "@/types/database";
 import { cn } from "@/lib/utils";
 
@@ -12,9 +12,9 @@ const allNav: { href: string; label: string; staffHidden?: boolean }[] = [
   { href: "/finance", label: "Finans", staffHidden: true },
   { href: "/appointments", label: "Randevular" },
   { href: "/appointments/confirm", label: "Teyit" },
-  { href: "/services", label: "Salon ayarları", staffHidden: true },
   { href: "/customers", label: "Müşteriler" },
   { href: "/staff", label: "Çalışanlar", staffHidden: true },
+  { href: "/settings", label: "Ayarlar", staffHidden: true },
 ];
 
 type SiteHeaderProps = {
@@ -26,7 +26,7 @@ export function SiteHeader({ navRole }: SiteHeaderProps) {
   const nav = isStaff ? allNav.filter((item) => !item.staffHidden) : allNav;
 
   return (
-    <header className="sticky top-0 z-50 px-4 pt-4 sm:px-6 lg:px-10">
+    <header className="sticky top-0 z-50 px-4 pt-4 sm:px-6 xl:px-10">
       <div
         className={cn(
           "glass-nav mx-auto flex max-w-6xl items-center justify-between gap-4 rounded-2xl px-4 py-3 sm:px-6",
@@ -48,20 +48,20 @@ export function SiteHeader({ navRole }: SiteHeaderProps) {
               priority
             />
           </span>
-          <span className="font-heading text-lg font-semibold tracking-tight sm:text-xl">
+          <span className="whitespace-nowrap font-heading text-lg font-semibold tracking-tight sm:text-xl">
             Nova Nail Studio
           </span>
         </Link>
 
         <nav
-          className="hidden items-center gap-1 md:flex"
+          className="hidden items-center gap-0.5 lg:flex xl:gap-1"
           aria-label="Ana navigasyon"
         >
           {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-full px-4 py-2 text-sm font-medium text-foreground/75 transition-colors hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]"
+              className="whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-foreground/75 transition-colors hover:bg-black/[0.04] hover:text-foreground xl:px-4 dark:hover:bg-white/[0.06]"
             >
               {item.label}
             </Link>
@@ -88,14 +88,10 @@ export function SiteHeader({ navRole }: SiteHeaderProps) {
           >
             Başla
           </Link>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="md:hidden"
-            aria-label="Menüyü aç"
-          >
-            <Menu className="size-5" />
-          </Button>
+          <MobileNavMenu
+            items={nav.map(({ href, label }) => ({ href, label }))}
+            className="lg:hidden"
+          />
         </div>
       </div>
     </header>

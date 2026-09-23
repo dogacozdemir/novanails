@@ -1,18 +1,16 @@
 "use client";
 
 import { m } from "framer-motion";
-import {
-  CalendarRange,
-  Clock,
-  Filter,
-  LayoutGrid,
-  List,
-  Loader2,
-  Palmtree,
-  Search,
-  UserMinus,
-  Users,
-} from "lucide-react";
+import CalendarRange from "lucide-react/dist/esm/icons/calendar-range.mjs";
+import Clock from "lucide-react/dist/esm/icons/clock.mjs";
+import Filter from "lucide-react/dist/esm/icons/filter.mjs";
+import LayoutGrid from "lucide-react/dist/esm/icons/layout-grid.mjs";
+import List from "lucide-react/dist/esm/icons/list.mjs";
+import Loader2 from "lucide-react/dist/esm/icons/loader-2.mjs";
+import Palmtree from "lucide-react/dist/esm/icons/tree-palm.mjs";
+import Search from "lucide-react/dist/esm/icons/search.mjs";
+import UserMinus from "lucide-react/dist/esm/icons/user-minus.mjs";
+import Users from "lucide-react/dist/esm/icons/users.mjs";
 import type { LucideIcon } from "lucide-react";
 import { useCallback } from "react";
 
@@ -28,7 +26,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { FIXED_SLOTS } from "@/lib/compute-available-slots";
-import { localDateISO } from "@/lib/time";
+import { istanbulDateISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 export type AppointmentViewMode = "board" | "list";
@@ -306,7 +304,7 @@ export function AppointmentFilterToolbar({
               size="sm"
               className={cn(BAR_H, "rounded-full px-4")}
               onClick={() => {
-                const t = localDateISO();
+                const t = istanbulDateISO();
                 onDateRangeChange({ start: t, end: t });
               }}
             >

@@ -396,6 +396,8 @@ export async function createStaff(input: { name: string; color_code: string }) {
   });
   if (error) throw error;
   revalidatePath("/services");
+  revalidatePath("/settings");
+  revalidatePath("/staff");
   revalidatePath("/appointments");
 }
 
@@ -415,6 +417,8 @@ export async function updateStaff(
     .eq("id", id);
   if (error) throw error;
   revalidatePath("/services");
+  revalidatePath("/settings");
+  revalidatePath("/staff");
   revalidatePath("/appointments");
 }
 
@@ -434,5 +438,7 @@ export async function deleteStaff(id: string) {
     throw error;
   }
   revalidatePath("/services");
+  revalidatePath("/settings");
+  revalidatePath("/staff");
   revalidatePath("/appointments");
 }

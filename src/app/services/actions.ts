@@ -48,6 +48,7 @@ export async function createService(input: {
   });
   if (error) throw error;
   revalidatePath("/services");
+  revalidatePath("/settings");
   revalidatePath("/appointments");
 }
 
@@ -73,6 +74,7 @@ export async function updateService(
     .eq("id", id);
   if (error) throw error;
   revalidatePath("/services");
+  revalidatePath("/settings");
   revalidatePath("/appointments");
 }
 
@@ -89,5 +91,6 @@ export async function deleteService(id: string) {
     throw error;
   }
   revalidatePath("/services");
+  revalidatePath("/settings");
   revalidatePath("/appointments");
 }
