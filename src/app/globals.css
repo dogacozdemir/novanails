@@ -102,6 +102,15 @@
     text-wrap: balance;
   }
 
+  /** PWA: yatay kaydırma çubuklarını gizle (iOS/Android komut satırı) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Nova Nail Studio — Liquid Glass v2.0
      translateZ(0) yok: aynı elemanda Tailwind translate (ör. modal -translate-x-1/2) ile tek transform mülkünde çakışır ve merkezleme bozulur. GPU ipucu: will-change + contain. */
   .liquid-glass-v2,
@@ -112,6 +121,9 @@
     will-change: backdrop-filter;
     backdrop-filter: blur(25px) saturate(180%);
     -webkit-backdrop-filter: blur(25px) saturate(180%);
+    /* üst-sol “inner edge” ışık vurgusu */
+    border-top: 0.5px solid rgb(255 255 255 / 40%);
+    border-left: 0.5px solid rgb(255 255 255 / 40%);
     background: rgba(255, 255, 255, 0.4);
     contain: layout paint;
     content-visibility: auto;
@@ -128,7 +140,10 @@
     will-change: backdrop-filter;
     backdrop-filter: blur(25px) saturate(180%);
     -webkit-backdrop-filter: blur(25px) saturate(180%);
-    background: rgba(255, 255, 255, 0.4);
+    border-top: 0.5px solid rgb(255 255 255 / 40%);
+    border-left: 0.5px solid rgb(255 255 255 / 40%);
+    @apply rounded-2xl;
+    background: rgba(255, 255, 255, 0.38);
     contain: layout paint;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.4),
@@ -148,11 +163,6 @@
     background: rgba(255, 255, 255, 0.44);
   }
 
-  .glass-nav {
-    @apply rounded-2xl;
-    background: rgba(255, 255, 255, 0.38);
-  }
-
   .glass-pill {
     @apply rounded-full px-4 py-1.5 text-xs font-medium text-muted-foreground;
     background: rgba(255, 255, 255, 0.42);
@@ -169,6 +179,8 @@
   .dark .glass-nav,
   .dark .glass-pill,
   .dark .glass-modal-surface {
+    border-top-color: rgb(255 255 255 / 12%);
+    border-left-color: rgb(255 255 255 / 12%);
     background: rgba(28, 28, 31, 0.58);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.22),
@@ -223,23 +235,99 @@
   }
 
   .ambient-nova {
-    background-color: var(--nova-cream);
+    background-color: #f5f1e9;
     background-image:
       radial-gradient(
-        1200px circle at 15% -10%,
-        rgb(255 255 255 / 55%),
+        100% 85% at 0% 0%,
+        rgb(255 250 245 / 72%),
+        transparent 58%
+      ),
+      radial-gradient(
+        90% 80% at 100% 0%,
+        rgb(233 225 213 / 85%),
         transparent 55%
       ),
       radial-gradient(
-        900px circle at 95% 15%,
-        rgb(245 241 233 / 90%),
-        transparent 50%
+        75% 70% at 100% 100%,
+        rgb(240 216 200 / 38%),
+        transparent 52%
       ),
       radial-gradient(
-        700px circle at 50% 100%,
-        rgb(26 26 26 / 5%),
-        transparent 45%
+        85% 75% at 0% 100%,
+        rgb(245 241 233 / 88%),
+        transparent 55%
       );
+  }
+
+  /** Yavaş hareket eden köşe “aura” katmanı (SiteShell) */
+  .nova-aura-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(72px);
+    opacity: 0.42;
+    pointer-events: none;
+    will-change: transform;
+    animation: nova-orb-float 38s ease-in-out infinite;
+  }
+
+  .nova-aura-orb-tl {
+    width: min(72vw, 42rem);
+    height: min(72vw, 42rem);
+    top: -18%;
+    left: -22%;
+    background: radial-gradient(
+      circle,
+      rgb(245 241 233 / 95%) 0%,
+      rgb(255 232 220 / 45%) 42%,
+      transparent 68%
+    );
+  }
+
+  .nova-aura-orb-br {
+    width: min(68vw, 38rem);
+    height: min(68vw, 38rem);
+    bottom: -25%;
+    right: -18%;
+    background: radial-gradient(
+      circle,
+      rgb(229 220 208 / 88%) 0%,
+      rgb(245 228 215 / 40%) 48%,
+      transparent 72%
+    );
+    animation-delay: -19s;
+  }
+
+  @keyframes nova-orb-float {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(2.5%, 2%) scale(1.04);
+    }
+    66% {
+      transform: translate(-2%, 1.5%) scale(0.97);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nova-aura-orb {
+      animation: none;
+    }
+  }
+
+  /** Randevu kartları — ekstra sıvı doygunluk */
+  .nova-glass-appointment-card {
+    will-change: backdrop-filter, transform;
+    backdrop-filter: blur(25px) saturate(150%);
+    -webkit-backdrop-filter: blur(25px) saturate(150%);
+  }
+
+  @media (max-width: 767px) {
+    .nova-glass-appointment-card {
+      backdrop-filter: blur(12px) saturate(150%);
+      -webkit-backdrop-filter: blur(12px) saturate(150%);
+    }
   }
 
   .ambient-nova-dark {

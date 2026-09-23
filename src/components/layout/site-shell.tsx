@@ -16,7 +16,15 @@ export async function SiteShell({ children }: SiteShellProps) {
     <div className="relative min-h-screen overflow-x-hidden">
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 ambient-nova grain-soft dark:ambient-nova-dark"
+        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden dark:hidden"
+      >
+        <div className="ambient-nova grain-soft absolute inset-0" />
+        <div className="nova-aura-orb nova-aura-orb-tl" />
+        <div className="nova-aura-orb nova-aura-orb-br" />
+      </div>
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 hidden ambient-nova-dark grain-soft dark:block"
       />
       <ShellChrome navRole={navRole}>{children}</ShellChrome>
     </div>

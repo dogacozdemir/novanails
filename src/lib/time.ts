@@ -14,6 +14,14 @@ export function parseTimeToMinutesFromMidnight(raw: string): number {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
+/** Gece yarısından itibaren dakikadan HH:mm (takvim boşlukları için). */
+export function minutesFromMidnightToHHmm(totalMinutes: number): string {
+  const m = Math.max(0, Math.round(totalMinutes));
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
 /** Takvim sütunu dikey ekseni [08:00, 21:00) — Apple takvim benzeri iş günü şeridi */
 export const CALENDAR_DAY_START_HOUR = 8;
 export const CALENDAR_DAY_END_HOUR = 21;
@@ -106,6 +114,20 @@ export function localDateISO(d = new Date()) {
   return `${y}-${m}-${day}`;
 }
 
+/** İki YYYY-MM-DD arasında (dahil) tüm günler — yerel takvim. */
+export function iterateDateRangeInclusive(startISO: string, endISO: string): string[] {
+  const [sy, sm, sd] = startISO.split("-").map(Number);
+  const [ey, em, ed] = endISO.split("-").map(Number);
+  const end = new Date(ey, em - 1, ed ?? 1);
+  const out: string[] = [];
+  const cur = new Date(sy, sm - 1, sd ?? 1);
+  while (cur <= end) {
+    out.push(localDateISO(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 /** Örn. 29 Nisan 2026 — liste başlıkları için */
 export function formatDateTRLong(isoDate: string) {
   const [y, m, d] = isoDate.split("-").map(Number);
@@ -171,5 +193,33 @@ export function monthRecordedRangeUtc(monthISO: string) {
     ny += 1;
   }
   const endIso = new Date(`${ny}-${pad(nm)}-01T00:00:00+03:00`).toISOString();
+  return { startIso, endIso };
+}
+
+/**
+ * `revenue_entries.recorded_at` için tek takvim günü [başlangıç, son) UTC ISO aralığı.
+ * Europe/Istanbul (UTC+3) ile uyumlu.
+ */
+export function dayRecordedRangeUtc(dateISO: string) {
+  const [y, m, d] = dateISO.split("-").map(Number);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const startIso = new Date(
+    `${y}-${pad(m)}-${pad(d)}T00:00:00+03:00`
+  ).toISOString();
+  let ny = y;
+  let nm = m;
+  let nd = d + 1;
+  const lastDay = new Date(y, m, 0).getDate();
+  if (nd > lastDay) {
+    nd = 1;
+    nm += 1;
+    if (nm > 12) {
+      nm = 1;
+      ny += 1;
+    }
+  }
+  const endIso = new Date(
+    `${ny}-${pad(nm)}-${pad(nd)}T00:00:00+03:00`
+  ).toISOString();
   return { startIso, endIso };
 }

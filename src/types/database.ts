@@ -20,6 +20,9 @@ export type PaymentMethod = "cash" | "credit_card" | "iban";
 /** Kullanıcı rolü — public.profiles.role */
 export type UserRole = "admin" | "staff";
 
+/** public.staff_time_off.type */
+export type StaffTimeOffType = "holiday" | "leave";
+
 export type Database = {
   public: {
     Tables: {
@@ -127,6 +130,49 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      staff_time_off: {
+        Row: {
+          id: string;
+          staff_id: string;
+          date: string;
+          start_time: string;
+          end_time: string;
+          type: StaffTimeOffType;
+          reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          staff_id: string;
+          date: string;
+          start_time: string;
+          end_time: string;
+          type: StaffTimeOffType;
+          reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          staff_id?: string;
+          date?: string;
+          start_time?: string;
+          end_time?: string;
+          type?: StaffTimeOffType;
+          reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "staff_time_off_staff_id_fkey";
+            columns: ["staff_id"];
+            referencedRelation: "staff";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       appointments: {
         Row: {

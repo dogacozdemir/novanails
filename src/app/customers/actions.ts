@@ -264,3 +264,122 @@ export async function getCustomerWithHistory(customerId: string): Promise<{
     financeHidden,
   };
 }
+
+export type CustomerHistoryMinimal = {
+  id: string;
+  appointment_date: string;
+  appointment_time: string;
+  service_name: string;
+  status: AppointmentStatus;
+};
+
+function mapCustomerHistoryRows(
+  rows: {
+    id: string;
+    appointment_date: string;
+    appointment_time: string;
+    status: string;
+    services: unknown;
+  }[]
+): CustomerHistoryMinimal[] {
+  return rows.map((row) => {
+    const svcRaw = row.services;
+    const svcRec =
+      svcRaw && typeof svcRaw === "object" && svcRaw !== null
+        ? (svcRaw as { name?: string })
+        : null;
+    return {
+      id: row.id,
+      appointment_date: row.appointment_date,
+      appointment_time: row.appointment_time,
+      service_name: svcRec?.name?.trim() || "—",
+      status: row.status as AppointmentStatus,
+    };
+  });
+}
+
+async function assertCustomerHistoryAccess(
+  customerId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  staffScope: string | null
+) {
+  if (!staffScope) return;
+  const { data: link, error: linkErr } = await supabase
+    .from("appointments")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("staff_id", staffScope)
+    .limit(1)
+    .maybeSingle();
+  if (linkErr) throw linkErr;
+  if (!link) throw new Error("Bu müşteri için yetkiniz yok.");
+}
+
+/** Randevu detay sayfası için en fazla 5 son randevu (geçmiş + yaklaşan). */
+export async function getCustomerRecentHistoryMinimal(
+  customerId: string,
+  excludeAppointmentId?: string
+): Promise<CustomerHistoryMinimal[]> {
+  await requireSession();
+  const supabase = await createClient();
+  const session = await getSessionProfile();
+  const staffScope =
+    session?.role === "staff" ? session.staffId ?? null : null;
+
+  try {
+    await assertCustomerHistoryAccess(customerId, supabase, staffScope);
+  } catch {
+    return [];
+  }
+
+  let apptQuery = supabase
+    .from("appointments")
+    .select(
+      "id, appointment_date, appointment_time, status, services ( name )"
+    )
+    .eq("customer_id", customerId)
+    .order("appointment_date", { ascending: false })
+    .order("appointment_time", { ascending: false })
+    .limit(excludeAppointmentId ? 6 : 5);
+
+  if (staffScope) {
+    apptQuery = apptQuery.eq("staff_id", staffScope);
+  }
+
+  const { data: rows, error } = await apptQuery;
+  if (error) throw error;
+
+  return mapCustomerHistoryRows(rows ?? [])
+    .filter((r) => r.id !== excludeAppointmentId)
+    .slice(0, 5);
+}
+
+/** Müşterinin tüm randevuları — detay panelinde isme tıklanınca (mevcut dahil). */
+export async function getCustomerFullAppointmentHistory(
+  customerId: string
+): Promise<CustomerHistoryMinimal[]> {
+  await requireSession();
+  const supabase = await createClient();
+  const session = await getSessionProfile();
+  const staffScope =
+    session?.role === "staff" ? session.staffId ?? null : null;
+
+  await assertCustomerHistoryAccess(customerId, supabase, staffScope);
+
+  let apptQuery = supabase
+    .from("appointments")
+    .select(
+      "id, appointment_date, appointment_time, status, services ( name )"
+    )
+    .eq("customer_id", customerId)
+    .order("appointment_date", { ascending: false })
+    .order("appointment_time", { ascending: false });
+
+  if (staffScope) {
+    apptQuery = apptQuery.eq("staff_id", staffScope);
+  }
+
+  const { data: rows, error } = await apptQuery;
+  if (error) throw error;
+  return mapCustomerHistoryRows(rows ?? []);
+}

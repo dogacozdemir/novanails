@@ -5,34 +5,48 @@ import ClipboardCheck from "lucide-react/dist/esm/icons/clipboard-check.mjs";
 import Clock from "lucide-react/dist/esm/icons/clock.mjs";
 import MessageCircle from "lucide-react/dist/esm/icons/message-circle.mjs";
 import Phone from "lucide-react/dist/esm/icons/phone.mjs";
+import Plus from "lucide-react/dist/esm/icons/plus.mjs";
 import Send from "lucide-react/dist/esm/icons/send.mjs";
 import Slash from "lucide-react/dist/esm/icons/slash.mjs";
 import dynamic from "next/dynamic";
+import { m } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import {
   Fragment,
   type MouseEvent,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useState,
+  useTransition,
 } from "react";
+
+import { Palmtree, UserMinus } from "lucide-react";
 
 import {
   getBoardData,
   recordPaymentAndComplete,
+  searchAppointmentsAdvanced,
   updateAppointmentStatus,
   type CustomerBrief,
   type EnrichedAppointment,
   type RecordPaymentPayload,
   type ServiceBrief,
   type StaffBrief,
+  type TimelineEvent,
+  type TimelineFilterStatus,
 } from "@/app/appointments/actions";
+import {
+  AppointmentFilterToolbar,
+  AppointmentViewModeToggle,
+  type AppointmentViewMode,
+} from "@/components/appointments/appointment-filter-toolbar";
+import { AppointmentListView } from "@/components/appointments/appointment-list-view";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AppointmentBoardSkeleton } from "@/components/ui/glass-skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   appointmentDurationPercent,
   appointmentStartPercent,
@@ -44,6 +58,7 @@ import {
   parseTimeToMinutesFromMidnight,
   trackPercentToRoundedTime,
 } from "@/lib/time";
+import { computeAvailableSlotStarts } from "@/lib/compute-available-slots";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import {
   buildTelHref,
@@ -77,6 +92,41 @@ const CancelAppointmentConfirm = dynamic(
 );
 
 const TRACK_MIN_H = "min-h-[min(72vh,44rem)]";
+const EMPTY_SLOT_BLOCK_MIN = 120;
+
+type BoardTimeOffEvent = Extract<TimelineEvent, { kind: "time_off" }>;
+
+function eventsToBoardAppointments(
+  events: TimelineEvent[],
+  dateISO: string
+): EnrichedAppointment[] {
+  return events
+    .filter(
+      (e): e is Extract<TimelineEvent, { kind: "appointment" }> =>
+        e.kind === "appointment" && e.appointment_date === dateISO
+    )
+    .map((e) => {
+      const { kind, ...rest } = e;
+      void kind;
+      return rest;
+    });
+}
+
+function boardTimeOffsForStaffDate(
+  events: TimelineEvent[],
+  dateISO: string,
+  staffId: string
+): BoardTimeOffEvent[] {
+  const rows = events.filter(
+    (e): e is BoardTimeOffEvent =>
+      e.kind === "time_off" && e.date === dateISO && e.staff_id === staffId
+  );
+  return rows.sort(
+    (a, b) =>
+      parseTimeToMinutesFromMidnight(a.start_time) -
+      parseTimeToMinutesFromMidnight(b.start_time)
+  );
+}
 
 function HourRail({ compact }: { compact?: boolean }) {
   return (
@@ -98,7 +148,7 @@ function HourRail({ compact }: { compact?: boolean }) {
             transform: "translateY(-50%)",
           }}
         >
-          <span className="font-sans text-[11px] font-semibold tabular-nums tracking-wide text-muted-foreground">
+          <span className="font-sans text-[10px] font-medium tabular-nums tracking-wide text-muted-foreground/45">
             {String(hour).padStart(2, "0")}:00
           </span>
         </div>
@@ -108,47 +158,70 @@ function HourRail({ compact }: { compact?: boolean }) {
 }
 
 function statusChip(status: AppointmentStatus) {
+  const iconClass = "size-3 shrink-0 stroke-[1.5] opacity-[0.92]";
+  const glassShimmer =
+    "relative overflow-hidden backdrop-blur-[6px] ring-1 ring-inset ring-white/30 before:pointer-events-none before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/40 before:via-transparent before:to-transparent before:opacity-50 dark:ring-white/10 dark:before:from-white/15";
+
   switch (status) {
     case "waiting":
       return {
         Icon: Clock,
         label: "Teyit bekliyor",
-        className:
-          "bg-[#FBBF24]/16 text-[#92400e] ring-1 ring-[#FBBF24]/35",
+        iconClass,
+        className: cn(
+          glassShimmer,
+          "border border-amber-400/20 bg-amber-300/18 text-amber-950 shadow-[0_0_16px_-5px_rgba(245,158,11,0.35)] dark:text-amber-50"
+        ),
       };
     case "message_sent":
       return {
         Icon: Send,
         label: "Mesaj gönderildi",
-        className:
-          "bg-[#3B82F6]/14 text-[#1e3a8a] ring-1 ring-[#3B82F6]/42 dark:text-[#bfdbfe]",
+        iconClass,
+        className: cn(
+          glassShimmer,
+          "border border-sky-400/22 bg-sky-400/14 text-sky-950 shadow-[0_0_16px_-5px_rgba(56,189,248,0.35)] dark:text-sky-100"
+        ),
       };
     case "confirmed":
       return {
         Icon: CheckCircle2,
         label: "Teyitlendi",
-        className:
-          "bg-[#10B981]/14 text-[#065f46] ring-1 ring-[#10B981]/35",
+        iconClass,
+        className: cn(
+          glassShimmer,
+          "border border-emerald-400/22 bg-emerald-400/14 text-emerald-950 shadow-[0_0_16px_-5px_rgba(52,211,153,0.35)] dark:text-emerald-50"
+        ),
       };
     case "cancelled":
       return {
         Icon: Slash,
         label: "İptal",
-        className:
-          "bg-[#EF4444]/12 text-[#991b1b] ring-1 ring-[#EF4444]/35",
+        iconClass,
+        className: cn(
+          glassShimmer,
+          "border border-red-400/25 bg-red-400/12 text-red-950 shadow-[0_0_14px_-5px_rgba(248,113,113,0.35)] dark:text-red-100"
+        ),
       };
     case "completed":
       return {
         Icon: ClipboardCheck,
         label: "Tamamlandı",
-        className:
-          "bg-slate-400/14 text-slate-800 ring-1 ring-slate-400/35 dark:text-slate-100",
+        iconClass,
+        className: cn(
+          glassShimmer,
+          "border border-slate-400/22 bg-slate-300/16 text-slate-900 shadow-[0_0_12px_-4px_rgba(148,163,184,0.4)] dark:text-slate-100"
+        ),
       };
     default:
       return {
         Icon: Clock,
         label: status,
-        className: "bg-muted text-muted-foreground",
+        iconClass,
+        className: cn(
+          glassShimmer,
+          "border border-muted-foreground/15 bg-muted/40 text-muted-foreground"
+        ),
       };
   }
 }
@@ -177,9 +250,28 @@ export function AppointmentsBoard({
 }) {
   const isStaffSession = sessionRole === "staff";
 
-  const [selectedDate, setSelectedDate] = useState(() => localDateISO());
+  const [viewMode, setViewMode] = useState<AppointmentViewMode>("board");
+  const [dateRange, setDateRange] = useState(() => {
+    const d = localDateISO();
+    return { start: d, end: d };
+  });
+  const [filterStaffIds, setFilterStaffIds] = useState<string[]>([]);
+  const [filterStatuses, setFilterStatuses] = useState<TimelineFilterStatus[]>(
+    []
+  );
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [filterTimeSlot, setFilterTimeSlot] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearch = useDeferredValue(searchQuery);
+  const [isPending, startTransition] = useTransition();
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const [fetchingFilters, setFetchingFilters] = useState(false);
+
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+
+  const [createDateISO, setCreateDateISO] = useState(() => localDateISO());
+
   const [staff, setStaff] = useState<StaffBrief[]>([]);
-  const [appointments, setAppointments] = useState<EnrichedAppointment[]>([]);
   const [customers, setCustomers] = useState<CustomerBrief[]>([]);
   const [services, setServices] = useState<ServiceBrief[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,9 +289,30 @@ export function AppointmentsBoard({
     slotTime: string;
   } | null>(null);
 
+  const boardAppointments = useMemo(
+    () => eventsToBoardAppointments(timelineEvents, dateRange.start),
+    [timelineEvents, dateRange.start]
+  );
+
+  const visibleStaff = useMemo(() => {
+    if (filterStaffIds.length === 0) return staff;
+    const pick = new Set(filterStaffIds);
+    return staff.filter((s) => pick.has(s.id));
+  }, [staff, filterStaffIds]);
+
+  const filterLoading = isPending || fetchingFilters;
+
+  const hasActiveBoardNarrowingFilters = useMemo(
+    () =>
+      filterStatuses.length > 0 ||
+      filterStaffIds.length > 0 ||
+      deferredSearch.trim().length > 0,
+    [filterStatuses, filterStaffIds, deferredSearch]
+  );
+
   const appointmentsByStaff = useMemo(() => {
     const m = new Map<string, EnrichedAppointment[]>();
-    for (const a of appointments) {
+    for (const a of boardAppointments) {
       const list = m.get(a.staff_id) ?? [];
       list.push(a);
       m.set(a.staff_id, list);
@@ -212,18 +325,41 @@ export function AppointmentsBoard({
       );
     }
     return m;
-  }, [appointments]);
+  }, [boardAppointments]);
+
+  const applyCommittedSearch = useCallback(async () => {
+    const res = await searchAppointmentsAdvanced({
+      dateRange,
+      staffIds: filterStaffIds,
+      statuses: filterStatuses,
+      query: searchQuery.trim(),
+      showCancelled,
+      implicitEmptySlots: viewMode === "board",
+    });
+    startTransition(() => {
+      setTimelineEvents(res.events);
+      setFilterError(res.error ?? null);
+    });
+    return res;
+  }, [
+    dateRange,
+    filterStaffIds,
+    filterStatuses,
+    searchQuery,
+    startTransition,
+    showCancelled,
+    viewMode,
+  ]);
 
   const refresh = useCallback(async () => {
     setLoadError(null);
-    const res = await getBoardData(selectedDate);
+    const res = await getBoardData(dateRange.start);
     if (res.error) setLoadError(res.error);
     setStaff(res.staff);
-    setAppointments(res.appointments);
     setCustomers(res.customers);
     setServices(res.services);
     return res;
-  }, [selectedDate]);
+  }, [dateRange.start]);
 
   useEffect(() => {
     let cancelled = false;
@@ -239,25 +375,63 @@ export function AppointmentsBoard({
 
   useEffect(() => {
     setMobileStaffIdx((prev) =>
-      staff.length === 0 ? 0 : Math.min(prev, staff.length - 1)
+      visibleStaff.length === 0
+        ? 0
+        : Math.min(prev, visibleStaff.length - 1)
     );
-  }, [staff]);
+  }, [visibleStaff]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setFetchingFilters(true);
+      try {
+        const res = await searchAppointmentsAdvanced({
+          dateRange,
+          staffIds: filterStaffIds,
+          statuses: filterStatuses,
+          query: deferredSearch.trim(),
+          showCancelled,
+          implicitEmptySlots: viewMode === "board",
+        });
+        if (!cancelled) {
+          startTransition(() => {
+            setTimelineEvents(res.events);
+            setFilterError(res.error ?? null);
+          });
+        }
+      } finally {
+        if (!cancelled) setFetchingFilters(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dateRange,
+    filterStaffIds,
+    filterStatuses,
+    deferredSearch,
+    startTransition,
+    showCancelled,
+    viewMode,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
     const supabase = createBrowserSupabase();
     const channel = supabase
-      .channel(`appointments-live-${selectedDate}`)
+      .channel(`appointments-live-${dateRange.start}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "appointments",
-          filter: `appointment_date=eq.${selectedDate}`,
+          filter: `appointment_date=eq.${dateRange.start}`,
         },
         () => {
-          if (!cancelled) void refresh();
+          if (!cancelled) void applyCommittedSearch();
         }
       )
       .subscribe();
@@ -266,16 +440,15 @@ export function AppointmentsBoard({
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [selectedDate, refresh]);
+  }, [dateRange.start, applyCommittedSearch]);
 
   const openDetail = useCallback((appt: EnrichedAppointment) => {
     setSheetAppt(appt);
     setSheetOpen(true);
   }, []);
 
-  const syncSheetAfterRefresh = useCallback(
-    async (nextAppointments: EnrichedAppointment[]) => {
-      setAppointments(nextAppointments);
+  const syncSheetAppointments = useCallback(
+    (nextAppointments: EnrichedAppointment[]) => {
       setSheetAppt((prev) => {
         if (!prev) return null;
         const u = nextAppointments.find((x) => x.id === prev.id);
@@ -290,12 +463,14 @@ export function AppointmentsBoard({
     setBusy(true);
     try {
       await updateAppointmentStatus(sheetAppt.id, "confirmed");
-      const res = await getBoardData(selectedDate);
-      await syncSheetAfterRefresh(res.appointments);
+      const res = await applyCommittedSearch();
+      syncSheetAppointments(
+        eventsToBoardAppointments(res.events, dateRange.start)
+      );
     } finally {
       setBusy(false);
     }
-  }, [sheetAppt, selectedDate, syncSheetAfterRefresh]);
+  }, [sheetAppt, applyCommittedSearch, syncSheetAppointments, dateRange.start]);
 
   const handlePayDetail = useCallback(
     async (payload: RecordPaymentPayload) => {
@@ -303,14 +478,21 @@ export function AppointmentsBoard({
       setBusy(true);
       try {
         await recordPaymentAndComplete(sheetAppt.id, payload);
-        const res = await getBoardData(selectedDate);
-        await syncSheetAfterRefresh(res.appointments);
+        const res = await applyCommittedSearch();
+        syncSheetAppointments(
+          eventsToBoardAppointments(res.events, dateRange.start)
+        );
         setSheetOpen(false);
       } finally {
         setBusy(false);
       }
     },
-    [sheetAppt, selectedDate, syncSheetAfterRefresh]
+    [
+      sheetAppt,
+      dateRange.start,
+      applyCommittedSearch,
+      syncSheetAppointments,
+    ]
   );
 
   const handleCancelConfirm = useCallback(async () => {
@@ -318,13 +500,20 @@ export function AppointmentsBoard({
     setBusy(true);
     try {
       await updateAppointmentStatus(sheetAppt.id, "cancelled");
-      const res = await getBoardData(selectedDate);
-      await syncSheetAfterRefresh(res.appointments);
+      const res = await applyCommittedSearch();
+      syncSheetAppointments(
+        eventsToBoardAppointments(res.events, dateRange.start)
+      );
       setSheetOpen(false);
     } finally {
       setBusy(false);
     }
-  }, [sheetAppt, selectedDate, syncSheetAfterRefresh]);
+  }, [
+    sheetAppt,
+    dateRange.start,
+    applyCommittedSearch,
+    syncSheetAppointments,
+  ]);
 
   const handleWhatsAppOpen = useCallback(async () => {
     if (!sheetAppt) return;
@@ -332,18 +521,38 @@ export function AppointmentsBoard({
       setBusy(true);
       try {
         await updateAppointmentStatus(sheetAppt.id, "message_sent");
-        const res = await getBoardData(selectedDate);
-        await syncSheetAfterRefresh(res.appointments);
+        const res = await applyCommittedSearch();
+        syncSheetAppointments(
+          eventsToBoardAppointments(res.events, dateRange.start)
+        );
       } finally {
         setBusy(false);
       }
     }
-  }, [sheetAppt, selectedDate, syncSheetAfterRefresh]);
+  }, [
+    sheetAppt,
+    dateRange.start,
+    applyCommittedSearch,
+    syncSheetAppointments,
+  ]);
 
-  const openCreate = useCallback((staffId: string, slotTime: string) => {
-    setCreateCtx({ staffId, slotTime });
-    setCreateOpen(true);
-  }, []);
+  const openCreate = useCallback(
+    (staffId: string, slotTime: string) => {
+      setCreateDateISO(dateRange.start);
+      setCreateCtx({ staffId, slotTime });
+      setCreateOpen(true);
+    },
+    [dateRange.start]
+  );
+
+  const handleCreateFromList = useCallback(
+    (p: { staffId: string; dateISO: string; timeHHmm: string }) => {
+      setCreateDateISO(p.dateISO);
+      setCreateCtx({ staffId: p.staffId, slotTime: p.timeHHmm });
+      setCreateOpen(true);
+    },
+    []
+  );
 
   const handleTrackClick = useCallback(
     (e: MouseEvent<HTMLElement>, staffId: string) => {
@@ -363,15 +572,33 @@ export function AppointmentsBoard({
     if (sheetOpen && !sheetAppt) setSheetOpen(false);
   }, [sheetOpen, sheetAppt]);
 
-  const headerSubtitle = useMemo(
-    () => formatDateTRLong(selectedDate),
-    [selectedDate]
-  );
+  const headerSubtitle = useMemo(() => {
+    if (viewMode === "list") {
+      if (dateRange.start === dateRange.end) {
+        return `${formatDateTRLong(dateRange.start)} · Liste görünümü`;
+      }
+      return `${formatDateTRLong(dateRange.start)} – ${formatDateTRLong(dateRange.end)}`;
+    }
+    return formatDateTRLong(dateRange.start);
+  }, [viewMode, dateRange.start, dateRange.end]);
 
   const handleAppointmentEdited = useCallback(async () => {
-    const res = await getBoardData(selectedDate);
-    await syncSheetAfterRefresh(res.appointments);
-  }, [selectedDate, syncSheetAfterRefresh]);
+    await refresh();
+    const res = await applyCommittedSearch();
+    syncSheetAppointments(
+      eventsToBoardAppointments(res.events, dateRange.start)
+    );
+  }, [
+    refresh,
+    applyCommittedSearch,
+    syncSheetAppointments,
+    dateRange.start,
+  ]);
+
+  const handleCreateSuccess = useCallback(async () => {
+    await refresh();
+    await applyCommittedSearch();
+  }, [refresh, applyCommittedSearch]);
 
   const renderAppointmentCard = useCallback((appt: EnrichedAppointment) => {
     const chip = statusChip(appt.status);
@@ -392,11 +619,17 @@ export function AppointmentsBoard({
     const showContactRow = Boolean(telHref || waHref);
 
     return (
-      <div
+      <m.div
+        layout={false}
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: "spring", stiffness: 520, damping: 32 }}
         className={cn(
-          "liquid-glass-v2 shadow-diffuse group/card relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.1rem] transition-[transform,box-shadow] duration-300 hover:-translate-y-[1px] hover:shadow-diffuse dark:!shadow-[0_28px_70px_-24px_rgba(0,0,0,0.35)]",
+          "nova-glass-appointment-card liquid-glass-v2 shadow-diffuse group/card relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[1.1rem] transition-[transform,box-shadow] duration-300 will-change-[backdrop-filter,transform] hover:-translate-y-[1px] hover:shadow-diffuse dark:!shadow-[0_28px_70px_-24px_rgba(0,0,0,0.35)]",
           appt.status === "cancelled" &&
-            "border border-[#EF4444]/30 bg-[#EF4444]/[0.09] opacity-[0.92]",
+            cn(
+              "border border-[#EF4444]/30 bg-[#EF4444]/[0.09]",
+              showCancelled && "opacity-50"
+            ),
           appt.status === "message_sent" &&
             "border border-blue-400/45 bg-blue-500/[0.12]",
           appt.status === "confirmed" &&
@@ -440,11 +673,11 @@ export function AppointmentsBoard({
               </p>
               <span
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 font-sans text-[9px] font-semibold tracking-wide sm:text-[10px]",
+                  "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 font-sans text-[9px] font-semibold tracking-wide sm:text-[10px]",
                   chip.className
                 )}
               >
-                <Icon className="size-2.5" aria-hidden />
+                <Icon className={chip.iconClass} aria-hidden />
                 {chip.label}
               </span>
             </div>
@@ -490,16 +723,74 @@ export function AppointmentsBoard({
             ) : null}
           </div>
         ) : null}
+      </m.div>
+    );
+  }, [openDetail, showCancelled]);
+
+  const renderTimeOffBlock = useCallback((off: BoardTimeOffEvent) => {
+    const isHol = off.time_off_type === "holiday";
+    const Icon = isHol ? Palmtree : UserMinus;
+    const label = isHol ? "Tatil" : "İzinli";
+    const startMin = parseTimeToMinutesFromMidnight(off.start_time);
+    const endMin = parseTimeToMinutesFromMidnight(off.end_time);
+    const blockMin = Math.max(15, endMin - startMin);
+    const top = appointmentStartPercent(off.start_time);
+    const hPct = appointmentDurationPercent(blockMin);
+    return (
+      <div
+        key={off.id}
+        className="pointer-events-none absolute left-0 right-0 z-[2] isolate overflow-hidden px-0"
+        style={{ top: `${top}%`, height: `${hPct}%` }}
+      >
+        <div className="box-border flex h-full min-h-0 flex-col justify-center rounded-[1.05rem] border border-black/[0.1] bg-black/[0.06] px-2 py-1 shadow-inner ring-1 ring-black/[0.04] backdrop-blur-md dark:border-white/[0.12] dark:bg-white/[0.08] dark:ring-white/[0.06]">
+          <div className="flex items-center gap-1.5 font-sans text-[9px] font-semibold tracking-wide text-muted-foreground sm:text-[10px]">
+            <Icon className="size-3 shrink-0 opacity-75" aria-hidden />
+            <span className="text-foreground/75">{label}</span>
+            <span className="ml-auto tabular-nums font-normal opacity-80">
+              {normalizeDisplayTime(off.start_time)}–
+              {normalizeDisplayTime(off.end_time)}
+            </span>
+          </div>
+        </div>
       </div>
     );
-  }, [openDetail]);
+  }, []);
 
   const renderTimelineTrack = useCallback((
     staffMember: { id: string; name: string; color_code: string },
     variant: "mobile" | "desktop"
   ) => {
     const staffApps = appointmentsByStaff.get(staffMember.id) ?? [];
+    const staffOff = boardTimeOffsForStaffDate(
+      timelineEvents,
+      dateRange.start,
+      staffMember.id
+    );
     const padX = variant === "mobile" ? "px-2" : "px-2 sm:px-2.5";
+
+    const busyIntervals: { start: number; end: number }[] = [];
+    for (const appt of staffApps) {
+      if (appt.status === "cancelled") continue;
+      const start = parseTimeToMinutesFromMidnight(appt.appointment_time);
+      const len = calendarDisplayDurationMinutes({
+        status: appt.status,
+        planned_duration: appt.planned_duration,
+        actual_duration: appt.actual_duration,
+        serviceDuration: appt.service?.duration ?? null,
+      });
+      busyIntervals.push({ start, end: start + len });
+    }
+    for (const off of staffOff) {
+      const sm = parseTimeToMinutesFromMidnight(off.start_time);
+      const em = parseTimeToMinutesFromMidnight(off.end_time);
+      if (em > sm) {
+        busyIntervals.push({ start: sm, end: em });
+      }
+    }
+    const availableSlots = computeAvailableSlotStarts({
+      busyIntervals,
+      durationMinutes: EMPTY_SLOT_BLOCK_MIN,
+    });
 
     return (
       <div
@@ -520,7 +811,7 @@ export function AppointmentsBoard({
             <div
               key={`${staffMember.id}-h-${hour}`}
               aria-hidden
-              className="pointer-events-none absolute left-0 right-0 border-t border-black/[0.055] dark:border-white/[0.07]"
+              className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-black/[0.18] opacity-20 dark:border-white/[0.2]"
               style={{
                 top: `${appointmentStartPercent(
                   `${String(hour).padStart(2, "0")}:00`
@@ -537,6 +828,37 @@ export function AppointmentsBoard({
           />
 
           <div className="pointer-events-none absolute inset-0 z-[1] px-0 pb-1 pt-0">
+            {availableSlots.map((slot) => {
+              const top = appointmentStartPercent(slot);
+              const hPct = appointmentDurationPercent(EMPTY_SLOT_BLOCK_MIN);
+              return (
+                <div
+                  key={`avail-${staffMember.id}-${slot}`}
+                  className="pointer-events-auto absolute left-0 right-0 z-[1] isolate px-0"
+                  style={{ top: `${top}%`, height: `${hPct}%` }}
+                >
+                  <m.button
+                    type="button"
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: "spring", stiffness: 520, damping: 32 }}
+                    onClick={() => openCreate(staffMember.id, slot)}
+                    className={cn(
+                      "liquid-glass-v2 shadow-diffuse box-border flex h-full min-h-0 w-full touch-manipulation flex-col items-center justify-center gap-0.5 rounded-[1.05rem] border border-dashed border-emerald-500/20 bg-emerald-500/[0.03] transition-all hover:bg-emerald-500/[0.07] dark:border-emerald-400/25"
+                    )}
+                    aria-label={`${staffMember.name} — ${slot} müsait slot, randevu ekle`}
+                  >
+                    <Plus
+                      className="size-4 shrink-0 text-emerald-600/45 dark:text-emerald-400/50"
+                      aria-hidden
+                    />
+                    <span className="font-sans text-[9px] font-semibold uppercase tracking-wider text-emerald-800/35 dark:text-emerald-200/40">
+                      Müsait
+                    </span>
+                  </m.button>
+                </div>
+              );
+            })}
+            {staffOff.map((off) => renderTimeOffBlock(off))}
             {staffApps.map((appt) => {
               const top = appointmentStartPercent(appt.appointment_time);
               const blockMin = calendarDisplayDurationMinutes({
@@ -546,10 +868,18 @@ export function AppointmentsBoard({
                 serviceDuration: appt.service?.duration ?? null,
               });
               const hPct = appointmentDurationPercent(blockMin);
+              const matchesTimeSlot =
+                !filterTimeSlot ||
+                normalizeDisplayTime(appt.appointment_time) === filterTimeSlot;
               return (
                 <div
                   key={appt.id}
-                  className="pointer-events-auto absolute left-0 right-0 z-[2] isolate overflow-hidden px-0"
+                  className={cn(
+                    "pointer-events-auto absolute left-0 right-0 z-[3] isolate overflow-hidden px-0 transition-[opacity,transform,filter] duration-300",
+                    filterTimeSlot &&
+                      !matchesTimeSlot &&
+                      "pointer-events-none scale-[0.98] opacity-15 blur-[0.5px]"
+                  )}
                   style={{
                     top: `${top}%`,
                     height: `${hPct}%`,
@@ -565,37 +895,65 @@ export function AppointmentsBoard({
         </div>
       </div>
     );
-  }, [appointmentsByStaff, handleTrackClick, renderAppointmentCard]);
+  }, [
+    appointmentsByStaff,
+    dateRange.start,
+    filterTimeSlot,
+    handleTrackClick,
+    openCreate,
+    renderAppointmentCard,
+    renderTimeOffBlock,
+    timelineEvents,
+  ]);
 
   if (loading && !staff.length) {
     return <AppointmentBoardSkeleton />;
   }
 
-  const mobileStaff = staff[mobileStaffIdx];
+  const mobileStaff = visibleStaff[mobileStaffIdx];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-6 md:pb-16 lg:px-8">
-      <header className="glass-nav flex flex-col gap-4 rounded-[1.35rem] px-5 py-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-            Nova Nail Studio
-          </p>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight text-[var(--nova-charcoal)] sm:text-4xl">
-            Randevu tahtası
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{headerSubtitle}</p>
-        </div>
-        <div className="flex flex-col gap-2 sm:items-end">
-          <label className="text-xs font-medium text-muted-foreground">
-            Tarih
-          </label>
-          <Input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="glass-surface h-11 w-full max-w-[14rem] rounded-2xl border-transparent font-sans"
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-6 md:pb-16 lg:px-8">
+      <header className="flex w-full flex-col gap-3">
+        <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+          <div className="min-w-0 text-left">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+              Nova Nail Studio
+            </p>
+            <h1 className="font-heading text-3xl font-semibold tracking-tight text-[var(--nova-charcoal)] sm:text-4xl">
+              Randevu tahtası
+            </h1>
+            <p className="mt-1 text-sm font-medium text-muted-foreground">
+              {headerSubtitle}
+            </p>
+          </div>
+          <AppointmentViewModeToggle
+            viewMode={viewMode}
+            onViewModeChange={(m) => {
+              setViewMode(m);
+              if (m === "board") {
+                setDateRange((r) => ({ start: r.start, end: r.start }));
+              }
+            }}
           />
         </div>
+        <AppointmentFilterToolbar
+          viewMode={viewMode}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          staffList={staff}
+          selectedStaffIds={filterStaffIds}
+          onSelectedStaffIdsChange={setFilterStaffIds}
+          selectedStatuses={filterStatuses}
+          onSelectedStatusesChange={setFilterStatuses}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          filterPending={filterLoading}
+          showCancelled={showCancelled}
+          onShowCancelledChange={setShowCancelled}
+          filterTimeSlot={filterTimeSlot}
+          onFilterTimeSlotChange={setFilterTimeSlot}
+        />
       </header>
 
       {loadError ? (
@@ -604,7 +962,32 @@ export function AppointmentsBoard({
         </div>
       ) : null}
 
-      {staff.length > 0 && appointments.length === 0 && !loading ? (
+      {filterError ? (
+        <div className="liquid-glass-v2 rounded-2xl px-4 py-3 font-sans text-sm text-destructive shadow-diffuse">
+          {filterError}
+        </div>
+      ) : null}
+
+      {staff.length > 0 &&
+      filterStaffIds.length > 0 &&
+      visibleStaff.length === 0 &&
+      viewMode === "board" ? (
+        <div className="liquid-glass-v2 rounded-[1.25rem] border border-dashed border-[#EA580C]/35 bg-[#EA580C]/[0.06] px-4 py-5 shadow-diffuse">
+          <p className="font-sans text-sm font-medium text-foreground">
+            Seçili uzman filtresine uyan sütun yok.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Farklı uzmanlar seçin veya uzman filtresini temizleyin.
+          </p>
+        </div>
+      ) : null}
+
+      {staff.length > 0 &&
+      boardAppointments.length === 0 &&
+      !loading &&
+      viewMode === "board" &&
+      visibleStaff.length > 0 &&
+      !hasActiveBoardNarrowingFilters ? (
         <div className="liquid-glass-v2 rounded-[1.25rem] border border-dashed border-primary/30 bg-primary/[0.04] px-3 shadow-diffuse sm:px-5">
           <EmptyState
             novaAccent
@@ -612,27 +995,30 @@ export function AppointmentsBoard({
             title="Bu tarihte henüz randevu yok"
             description="Takvimde boş bir saate dokunarak veya aşağıdan ekleyerek yeni randevu oluşturabilirsiniz."
           >
-            <Button
-              type="button"
-              className="rounded-xl shadow-diffuse"
-              onClick={() =>
-                staff[0] ? openCreate(staff[0].id, "10:00") : undefined
-              }
-            >
-              Randevu ekle
-            </Button>
+            <m.div whileTap={{ scale: 0.96 }} className="inline-flex">
+              <Button
+                type="button"
+                className="min-h-[44px] rounded-xl px-6 shadow-diffuse"
+                onClick={() => {
+                  const s = visibleStaff[0] ?? staff[0];
+                  if (s) openCreate(s.id, "10:00");
+                }}
+              >
+                Randevu ekle
+              </Button>
+            </m.div>
           </EmptyState>
         </div>
       ) : null}
 
-      {staff.length > 0 ? (
+      {staff.length > 0 && visibleStaff.length > 0 && viewMode === "board" ? (
         <>
           <div
             className="liquid-glass-v2 flex gap-1 rounded-[1.25rem] p-1 shadow-diffuse md:hidden"
             role="tablist"
             aria-label="Uzman seçimi"
           >
-            {staff.map((s, i) => (
+            {visibleStaff.map((s, i) => (
               <button
                 key={s.id}
                 type="button"
@@ -640,7 +1026,7 @@ export function AppointmentsBoard({
                 aria-selected={mobileStaffIdx === i}
                 onClick={() => setMobileStaffIdx(i)}
                 className={cn(
-                  "min-h-[2.75rem] flex-1 touch-manipulation truncate rounded-[1rem] px-2 py-2 text-center font-sans text-[11px] font-semibold tracking-wide transition-colors",
+                  "min-h-[44px] flex-1 touch-manipulation truncate rounded-[1rem] px-2 py-2 text-center font-sans text-[11px] font-semibold tracking-wide transition-colors",
                   mobileStaffIdx === i
                     ? "bg-white/55 text-foreground shadow-diffuse ring-1 ring-white/55 dark:bg-white/[0.14] dark:ring-white/20"
                     : "text-muted-foreground hover:text-foreground/90"
@@ -683,7 +1069,7 @@ export function AppointmentsBoard({
                 <div className="min-w-[720px]">
                   <div className="flex border-b border-black/[0.06] dark:border-white/[0.08]">
                     <div className="sticky left-0 z-[6] w-[3.25rem] shrink-0 bg-[#f5f1e9]/92 backdrop-blur-xl dark:bg-background/92" />
-                    {staff.map((s) => (
+                    {visibleStaff.map((s) => (
                       <div
                         key={s.id}
                         className="min-w-[11.5rem] flex-1 snap-start px-3 py-3 text-center"
@@ -701,7 +1087,7 @@ export function AppointmentsBoard({
                   </div>
                   <div className="flex border-t border-black/[0.04] dark:border-white/[0.06]">
                     <HourRail />
-                    {staff.map((s) => (
+                    {visibleStaff.map((s) => (
                       <Fragment key={s.id}>
                         {renderTimelineTrack(s, "desktop")}
                       </Fragment>
@@ -712,6 +1098,18 @@ export function AppointmentsBoard({
             </div>
           </div>
         </>
+      ) : null}
+
+      {staff.length > 0 && viewMode === "list" ? (
+        <AppointmentListView
+          events={timelineEvents}
+          staffList={staff}
+          loading={filterLoading}
+          error={filterError}
+          onAppointmentPress={openDetail}
+          onCreateFromSlot={handleCreateFromList}
+          dimCancelled={showCancelled}
+        />
       ) : null}
 
       {staff.length === 0 && !loading ? (
@@ -738,6 +1136,26 @@ export function AppointmentsBoard({
         </EmptyState>
       ) : null}
 
+      {staff.length > 0 ? (
+        <m.button
+          type="button"
+          aria-label="Hızlı randevu ekle"
+          whileTap={{ scale: 0.94 }}
+          transition={{ type: "spring", stiffness: 500, damping: 28 }}
+          onClick={() => {
+            const s = visibleStaff[0] ?? staff[0];
+            if (s) openCreate(s.id, "10:00");
+          }}
+          className={cn(
+            "liquid-glass-v2 shadow-diffuse fixed z-50 flex size-14 items-center justify-center rounded-full border border-[var(--glass-border)] text-foreground will-change-[backdrop-filter,transform] backdrop-blur-xl",
+            "max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] right-4 touch-manipulation shadow-[0_12px_40px_-8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.55)] md:right-8",
+            "ring-1 ring-white/45 dark:border-white/15 dark:ring-white/10"
+          )}
+        >
+          <Plus className="size-6 stroke-[1.75]" aria-hidden />
+        </m.button>
+      ) : null}
+
       <AppointmentDetailSheet
         appointment={sheetAppt}
         open={sheetOpen}
@@ -748,6 +1166,9 @@ export function AppointmentsBoard({
         timeLabel={sheetTimeLabel}
         busy={busy}
         sessionRole={sessionRole}
+        customers={customers}
+        services={services}
+        staff={staff}
         onConfirm={handleConfirmDetail}
         onPayment={handlePayDetail}
         onWhatsAppOpen={handleWhatsAppOpen}
@@ -770,14 +1191,12 @@ export function AppointmentsBoard({
           if (!o) setCreateCtx(null);
         }}
         ctx={createCtx}
-        selectedDateISO={selectedDate}
+        selectedDateISO={createDateISO}
         staff={staff}
         customers={customers}
         services={services}
         isStaffSession={isStaffSession}
-        onSuccess={async () => {
-          await refresh();
-        }}
+        onSuccess={handleCreateSuccess}
       />
     </div>
   );

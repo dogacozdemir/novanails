@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  getDailyRevenueTotal,
   getMonthlyFinanceWithComparison,
   type FinanceTotals,
 } from "@/app/dashboard/actions";
@@ -32,7 +33,7 @@ const MonthlyExportButton = dynamic(
 );
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatDateTRLong, istanbulYearMonthISO } from "@/lib/time";
+import { formatDateTRLong, istanbulDateISO, istanbulYearMonthISO } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 function formatMoney(n: number) {
@@ -49,6 +50,7 @@ export function FinanceBoard() {
     current: FinanceTotals;
     previous: FinanceTotals;
   } | null>(null);
+  const [dailyRevenue, setDailyRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,14 +59,18 @@ export function FinanceBoard() {
     setLoading(true);
     setError(null);
     try {
-      const [data, snap] = await Promise.all([
+      const todayIso = istanbulDateISO();
+      const [data, snap, daily] = await Promise.all([
         listExpenses(monthISO),
         getMonthlyFinanceWithComparison(monthISO),
+        getDailyRevenueTotal(todayIso),
       ]);
       setRows(data);
       setTotals(snap);
+      setDailyRevenue(daily);
     } catch (e) {
       setTotals(null);
+      setDailyRevenue(0);
       setError(e instanceof Error ? e.message : "Liste alınamadı");
     } finally {
       setLoading(false);
@@ -132,7 +138,18 @@ export function FinanceBoard() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="glass-surface-strong rounded-3xl p-6 transition-glass ring-1 ring-white/10 backdrop-blur-xl">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Günlük Ciro
+          </p>
+          <p className="mt-3 font-heading text-2xl font-semibold tabular-nums text-foreground sm:text-3xl">
+            {loading ? "…" : formatMoney(dailyRevenue)}
+          </p>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Bugünkü gelir kayıtları (İstanbul)
+          </p>
+        </div>
         <div className="glass-surface-strong rounded-3xl p-6 transition-glass">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Toplam ciro

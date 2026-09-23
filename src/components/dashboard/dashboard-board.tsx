@@ -9,6 +9,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  getDailyRevenueTotal,
   getExpenseBreakdownByCategory,
   getMonthlyFinanceWithComparison,
   getStaffRevenuePie,
@@ -22,7 +23,7 @@ import { MonthOverMonthHint } from "@/components/dashboard/month-over-month-hint
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { GlassSkeleton } from "@/components/ui/glass-skeleton";
-import { formatDateTRLong, istanbulYearMonthISO } from "@/lib/time";
+import { formatDateTRLong, istanbulDateISO, istanbulYearMonthISO } from "@/lib/time";
 import type { UserRole } from "@/types/database";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,7 @@ const ZERO_FINANCE: FinanceTotals = {
 export function DashboardBoard({ sessionRole }: { sessionRole: UserRole }) {
   const isStaff = sessionRole === "staff";
   const [monthISO, setMonthISO] = useState(() => istanbulYearMonthISO());
+  const [dayISO, setDayISO] = useState(() => istanbulDateISO());
   const [loading, setLoading] = useState(true);
   const [finance, setFinance] = useState<{
     current: FinanceTotals;
@@ -79,6 +81,7 @@ export function DashboardBoard({ sessionRole }: { sessionRole: UserRole }) {
   const [expenseSlices, setExpenseSlices] = useState<ExpenseCategorySlice[]>([]);
   const [pie, setPie] = useState<StaffSlice[]>([]);
   const [today, setToday] = useState<TodayTaskLine[]>([]);
+  const [dailyRevenue, setDailyRevenue] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -91,24 +94,27 @@ export function DashboardBoard({ sessionRole }: { sessionRole: UserRole }) {
         setExpenseSlices([]);
         setPie([]);
         setToday(t);
+        setDailyRevenue(0);
       } else {
-        const [f, p, t, exp] = await Promise.all([
+        const [f, p, t, exp, daily] = await Promise.all([
           getMonthlyFinanceWithComparison(monthISO),
           getStaffRevenuePie(monthISO),
           getTodayWorkload(),
           getExpenseBreakdownByCategory(monthISO),
+          getDailyRevenueTotal(dayISO),
         ]);
         setFinance(f);
         setExpenseSlices(exp);
         setPie(p);
         setToday(t);
+        setDailyRevenue(daily);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Veri alınamadı");
     } finally {
       setLoading(false);
     }
-  }, [monthISO, isStaff]);
+  }, [monthISO, dayISO, isStaff]);
 
   useEffect(() => {
     void load();
@@ -118,6 +124,13 @@ export function DashboardBoard({ sessionRole }: { sessionRole: UserRole }) {
     () => formatDateTRLong(`${monthISO}-01`),
     [monthISO]
   );
+
+  const dailyRevenueLabel = useMemo(() => {
+    if (dayISO === istanbulDateISO()) {
+      return "Bugünkü gelir kayıtları (İstanbul)";
+    }
+    return `${formatDateTRLong(dayISO)} gelir kayıtları`;
+  }, [dayISO]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-6 md:pb-16 lg:px-8">
@@ -149,6 +162,18 @@ export function DashboardBoard({ sessionRole }: { sessionRole: UserRole }) {
                   "focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 )}
               />
+              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                Gün
+              </label>
+              <input
+                type="date"
+                value={dayISO}
+                onChange={(e) => setDayISO(e.target.value)}
+                className={cn(
+                  "h-11 rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 text-sm backdrop-blur-xl",
+                  "focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                )}
+              />
               <Link
                 href="/finance"
                 className={cn(
@@ -171,7 +196,30 @@ export function DashboardBoard({ sessionRole }: { sessionRole: UserRole }) {
       ) : null}
 
       {!isStaff ? (
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="glass-surface-strong rounded-3xl p-6 transition-glass ring-1 ring-white/10 backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Günlük Ciro
+            </p>
+            <input
+              type="date"
+              value={dayISO}
+              onChange={(e) => setDayISO(e.target.value)}
+              aria-label="Günlük ciro tarihi"
+              className={cn(
+                "h-7 min-w-0 max-w-[9.5rem] cursor-pointer rounded-full border-none bg-white/10 px-2 py-0.5 font-sans text-xs tabular-nums text-foreground backdrop-blur-sm dark:bg-black/20",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              )}
+            />
+          </div>
+          <p className="mt-3 font-heading text-3xl font-semibold tabular-nums text-foreground">
+            {loading ? "…" : formatMoney(dailyRevenue)}
+          </p>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {dailyRevenueLabel}
+          </p>
+        </div>
         <div className="glass-surface-strong rounded-3xl p-6 transition-glass">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Toplam ciro
@@ -180,7 +228,7 @@ export function DashboardBoard({ sessionRole }: { sessionRole: UserRole }) {
             {loading ? "…" : formatMoney(finance.current.revenue)}
           </p>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Gelir kayıtlarından toplanan bu ay tahsilat (İstanbul takvimi)
+            Gelir kayıtlarından toplanan bu ay tahsilat
           </p>
           {!loading ? (
             <MonthOverMonthHint
@@ -279,7 +327,7 @@ export function DashboardBoard({ sessionRole }: { sessionRole: UserRole }) {
             </h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Bekleyen ve teyitli randevular (İstanbul tarihi).
+            Bekleyen ve teyitli randevular
           </p>
           <ul className="mt-5 flex flex-col gap-3">
             {today.length === 0 && !loading ? (

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { expenseCategoryLabel } from "@/lib/expense-category-labels";
 import { addMoney, subtractMoney, sumMoney } from "@/lib/money";
 import {
+  dayRecordedRangeUtc,
   istanbulDateISO,
   monthExpenseDateRange,
   monthRecordedRangeUtc,
@@ -83,6 +84,22 @@ async function fetchMonthlyFinanceTotals(monthISO: string): Promise<FinanceTotal
 export async function getMonthlyFinance(monthISO: string): Promise<FinanceTotals> {
   await requireAdmin();
   return fetchMonthlyFinanceTotals(monthISO);
+}
+
+/** Seçilen takvim günü için gelir kayıtları toplamı (Günlük Ciro). */
+export async function getDailyRevenueTotal(dateISO: string): Promise<number> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { startIso, endIso } = dayRecordedRangeUtc(dateISO);
+
+  const { data: rows, error } = await supabase
+    .from("revenue_entries")
+    .select("amount")
+    .gte("recorded_at", startIso)
+    .lt("recorded_at", endIso);
+
+  if (error) throw error;
+  return sumMoney((rows ?? []).map((r) => Number(r.amount)));
 }
 
 /** Seçilen ay ve bir önceki ay — KPI kartları için gerçek MoM karşılaştırması. */

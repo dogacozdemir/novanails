@@ -1,7 +1,6 @@
 "use client";
 
-import Loader2 from "lucide-react/dist/esm/icons/loader-2.mjs";
-import X from "lucide-react/dist/esm/icons/x.mjs";
+import { CalendarCheck, Clock, Loader2, X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -10,13 +9,17 @@ import { toast } from "sonner";
 
 import {
   createAppointment,
+  getAvailableSlots,
   type CustomerBrief,
   type ServiceBrief,
   type StaffBrief,
 } from "@/app/appointments/actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { APPOINTMENT_OVERLAP_ERROR } from "@/lib/appointment-errors";
+import {
+  APPOINTMENT_ACTIVE_SLOT_UNIQUE_ERROR,
+  APPOINTMENT_OVERLAP_ERROR,
+} from "@/lib/appointment-errors";
 import {
   NOVA_DIALOG_DESCRIPTION,
   NOVA_DIALOG_TITLE,
@@ -77,6 +80,8 @@ export function AppointmentCreateDialog({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -86,6 +91,8 @@ export function AppointmentCreateDialog({
       setDurationMinutes("120");
       setNotes("");
       setError(null);
+      setAvailableSlots(null);
+      setSlotsLoading(false);
     }
   }, [open, services]);
 
@@ -106,6 +113,52 @@ export function AppointmentCreateDialog({
       setServiceId(services[0].id);
     }
   }, [open, services, serviceId]);
+
+  useEffect(() => {
+    setAvailableSlots(null);
+  }, [staffId, selectedDateISO, durationMinutes]);
+
+  const loadAvailableSlots = async () => {
+    if (!staffId.trim()) {
+      toast.error("Uzman seçin", {
+        description:
+          "Müsait saatleri görmek için listeden bir uzman seçmelisiniz.",
+      });
+      return;
+    }
+    const planned = Math.max(
+      1,
+      Math.round(parseFloat(durationMinutes.replace(",", ".")) || 120)
+    );
+    if (!Number.isFinite(planned) || planned < 1) {
+      toast.error("Geçersiz süre", {
+        description: "Önce randevu süresi için geçerli bir dakika değeri girin.",
+      });
+      return;
+    }
+    setSlotsLoading(true);
+    setError(null);
+    try {
+      const { slots } = await getAvailableSlots(
+        selectedDateISO,
+        staffId,
+        planned
+      );
+      setAvailableSlots(slots);
+      if (slots.length === 0) {
+        toast.error("Uygun saat bulunamadı", {
+          description:
+            "Bu tarih, uzman ve süre için takvimde boşluk yok. Süreyi veya tarihi değiştirmeyi deneyin.",
+        });
+      }
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "Müsait saatler yüklenemedi.";
+      toast.error("Müsait saatler alınamadı", { description: msg });
+    } finally {
+      setSlotsLoading(false);
+    }
+  };
 
   const submit = async () => {
     if (!ctx) {
@@ -159,19 +212,16 @@ export function AppointmentCreateDialog({
       ) {
         toast.error("Bu zaman dilimi uygun değil", {
           description:
-            "Seçilen saat ve hizmet süresi, uzmanın dolu olduğu bir aralıkla çakışıyor. Lütfen başka bir saat veya hizmet süresi seçin.",
+            "Seçilen saat ve planlanan süre, uzmanın dolu olduğu bir aralıkla çakışıyor. Lütfen başka bir saat veya süre seçin.",
         });
         setError(null);
       } else {
         const dup =
           msg.includes("duplicate") ||
           msg.includes("unique") ||
-          msg.includes("23505");
-        setError(
-          dup
-            ? "Bu uzman için aynı başlangıç saatinde başka bir randevu var."
-            : msg
-        );
+          msg.includes("23505") ||
+          msg === APPOINTMENT_ACTIVE_SLOT_UNIQUE_ERROR;
+        setError(dup ? APPOINTMENT_ACTIVE_SLOT_UNIQUE_ERROR : msg);
       }
     } finally {
       setSubmitting(false);
@@ -257,9 +307,36 @@ export function AppointmentCreateDialog({
             </div>
 
             <div className="space-y-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                Saat
-              </span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Saat
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    submitting ||
+                    slotsLoading ||
+                    staff.length === 0 ||
+                    !staffId.trim()
+                  }
+                  onClick={() => void loadAvailableSlots()}
+                  className={cn(
+                    "h-9 shrink-0 gap-2 rounded-xl border-[var(--glass-border)] bg-[var(--glass-bg)]/88 shadow-sm backdrop-blur-xl",
+                    "hover:bg-[#f5f1e9]/75 dark:hover:bg-white/[0.08]"
+                  )}
+                >
+                  {slotsLoading ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : (
+                    <CalendarCheck className="size-4" aria-hidden />
+                  )}
+                  <span className="font-sans text-xs font-semibold tracking-wide">
+                    Müsait saatleri göster
+                  </span>
+                </Button>
+              </div>
               <input
                 type="time"
                 step={300}
@@ -271,6 +348,44 @@ export function AppointmentCreateDialog({
                   "focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 )}
               />
+              {availableSlots !== null && availableSlots.length > 0 ? (
+                <div className="space-y-2 pt-1">
+                  <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Clock className="size-3 shrink-0" aria-hidden />
+                    Müsait saatler — dokunarak seçin
+                  </p>
+                  <div
+                    className={cn(
+                      "flex gap-2 overflow-x-auto pb-2 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:thin]",
+                      "[&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black/15 dark:[&::-webkit-scrollbar-thumb]:bg-white/20"
+                    )}
+                    role="list"
+                    aria-label="Müsait randevu saatleri"
+                  >
+                    {availableSlots.map((slot) => {
+                      const picked = normalizeDisplayTime(timeValue) === slot;
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          role="listitem"
+                          onClick={() => setTimeValue(slot)}
+                          disabled={submitting}
+                          className={cn(
+                            "shrink-0 rounded-xl border px-3 py-2 font-mono text-xs font-medium tabular-nums backdrop-blur-xl transition-colors",
+                            "border-[var(--glass-border)] bg-[var(--glass-bg)]/90 shadow-[0_10px_28px_-14px_rgba(0,0,0,0.22)]",
+                            "ring-1 ring-white/40 hover:bg-white/55 dark:ring-white/10 dark:hover:bg-white/[0.12]",
+                            picked &&
+                              "border-primary/55 bg-primary/12 ring-primary/30"
+                          )}
+                        >
+                          {slot}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <p className="text-[11px] text-muted-foreground">
                 Dakika hassasiyetiyle randevu saati (ör. 11:15, 13:45).
               </p>

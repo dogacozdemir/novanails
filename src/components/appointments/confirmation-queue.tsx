@@ -8,11 +8,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  getBoardData,
   listPendingConfirmations,
   recordPaymentAndComplete,
   updateAppointmentStatus,
+  type CustomerBrief,
   type EnrichedAppointment,
   type RecordPaymentPayload,
+  type ServiceBrief,
   type StaffBrief,
 } from "@/app/appointments/actions";
 import {
@@ -22,7 +25,7 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
-import { formatDateTRLong, normalizeDisplayTime } from "@/lib/time";
+import { formatDateTRLong, istanbulDateISO, normalizeDisplayTime } from "@/lib/time";
 import {
   buildTelHref,
   buildWhatsAppConfirmationLink,
@@ -68,6 +71,9 @@ export function ConfirmationQueue({ sessionRole }: Props) {
   const isStaffSession = sessionRole === "staff";
   const [items, setItems] = useState<EnrichedAppointment[]>([]);
   const [staffList, setStaffList] = useState<StaffBrief[]>([]);
+  const [customers, setCustomers] = useState<CustomerBrief[]>([]);
+  const [services, setServices] = useState<ServiceBrief[]>([]);
+  const [boardStaff, setBoardStaff] = useState<StaffBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -90,6 +96,14 @@ export function ConfirmationQueue({ sessionRole }: Props) {
     if (res.error) setLoadError(res.error);
     setItems(res.appointments);
     setStaffList(res.staffList);
+
+    const board = await getBoardData(istanbulDateISO());
+    if (!board.error) {
+      setCustomers(board.customers);
+      setServices(board.services);
+      setBoardStaff(board.staff);
+    }
+
     return res;
   }, []);
 
@@ -129,6 +143,12 @@ export function ConfirmationQueue({ sessionRole }: Props) {
     if (res.error) setLoadError(res.error);
     syncSheetAfterList(res.appointments);
     setStaffList(res.staffList);
+    const board = await getBoardData(istanbulDateISO());
+    if (!board.error) {
+      setCustomers(board.customers);
+      setServices(board.services);
+      setBoardStaff(board.staff);
+    }
   }, [syncSheetAfterList]);
 
   const handleConfirmDetail = async () => {
@@ -350,6 +370,9 @@ export function ConfirmationQueue({ sessionRole }: Props) {
         timeLabel={sheetTimeLabel}
         busy={busy}
         sessionRole={sessionRole}
+        customers={customers}
+        services={services}
+        staff={boardStaff.length > 0 ? boardStaff : staffList}
         onConfirm={handleConfirmDetail}
         onPayment={handlePayDetail}
         onWhatsAppOpen={handleWhatsAppOpen}

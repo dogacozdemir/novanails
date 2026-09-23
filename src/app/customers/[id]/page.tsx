@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { getBoardData } from "@/app/appointments/actions";
 import { getCustomerWithHistory } from "@/app/customers/actions";
 import { CustomerDetailView } from "@/components/customers/customer-detail-view";
+import { getSessionProfile } from "@/lib/auth/session-profile";
+import { istanbulDateISO } from "@/lib/time";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -20,7 +23,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CustomerDetailPage({ params }: Props) {
   const { id } = await params;
-  const data = await getCustomerWithHistory(id);
+  const [data, board, profile] = await Promise.all([
+    getCustomerWithHistory(id),
+    getBoardData(istanbulDateISO()),
+    getSessionProfile(),
+  ]);
   if (!data.customer) notFound();
 
   return (
@@ -30,6 +37,10 @@ export default async function CustomerDetailPage({ params }: Props) {
         appointments={data.appointments}
         totalPaid={data.totalPaid}
         financeHidden={data.financeHidden}
+        sessionRole={profile?.role ?? "staff"}
+        customers={board.customers}
+        services={board.services}
+        staff={board.staff}
       />
     </div>
   );
