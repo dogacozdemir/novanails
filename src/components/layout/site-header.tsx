@@ -14,6 +14,7 @@ const allNav: { href: string; label: string; staffHidden?: boolean }[] = [
   { href: "/appointments/confirm", label: "Teyit" },
   { href: "/services", label: "Salon ayarları", staffHidden: true },
   { href: "/customers", label: "Müşteriler" },
+  { href: "/staff", label: "Çalışanlar", staffHidden: true },
 ];
 
 type SiteHeaderProps = {

@@ -8,7 +8,8 @@ function isProtectedAppRoute(pathname: string): boolean {
     pathname.startsWith("/appointments") ||
     pathname.startsWith("/services") ||
     pathname.startsWith("/customers") ||
-    pathname.startsWith("/settings")
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/staff")
   );
 }
 
@@ -91,7 +92,8 @@ export async function middleware(request: NextRequest) {
       const blockedStaff =
         pathname.startsWith("/finance") ||
         pathname.startsWith("/settings") ||
-        pathname.startsWith("/services");
+        pathname.startsWith("/services") ||
+        pathname.startsWith("/staff");
       if (blockedStaff) {
         const url = request.nextUrl.clone();
         url.pathname = "/appointments";
@@ -131,5 +133,6 @@ export const config = {
     "/services/:path*",
     "/customers/:path*",
     "/settings/:path*",
+    "/staff/:path*",
   ],
 };
