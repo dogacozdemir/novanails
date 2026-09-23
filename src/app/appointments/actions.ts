@@ -26,7 +26,11 @@ import {
   parseTimeToMinutesFromMidnight,
 } from "@/lib/time";
 import { getSessionProfile, requireSession } from "@/lib/auth/session-profile";
-import { isPgrstRelationNotFound } from "@/lib/supabase/postgrest-errors";
+import { isPaymentMethod } from "@/lib/payment-method-labels";
+import {
+  isPgrstFunctionNotFound,
+  isPgrstRelationNotFound,
+} from "@/lib/supabase/postgrest-errors";
 import type {
   AppointmentStatus,
   Database,
@@ -49,6 +53,24 @@ export type RecordPaymentPayload = {
   final_price: number;
   payment_method: PaymentMethod;
   actual_duration?: number | null;
+};
+
+export type CorrectPaymentPayload = RecordPaymentPayload & {
+  /** Düzeltme açıklaması — payment_corrections.reason */
+  reason?: string | null;
+};
+
+export type PaymentCorrectionRow = {
+  id: string;
+  created_at: string;
+  old_amount: number | null;
+  new_amount: number;
+  old_payment_method: PaymentMethod | null;
+  new_payment_method: PaymentMethod;
+  old_actual_duration: number | null;
+  new_actual_duration: number | null;
+  reason: string | null;
+  corrected_by_email: string | null;
 };
 
 export type CustomerBrief = {
@@ -1056,6 +1078,101 @@ export async function recordPaymentAndComplete(
   revalidatePath("/appointments");
   revalidatePath("/dashboard");
   revalidatePath("/finance");
+}
+
+const PAYMENT_CORRECTION_MIGRATION_MISSING =
+  "Ödeme düzeltme için veritabanı güncellemesi henüz uygulanmamış (20260923130000_payment_corrections.sql).";
+
+/**
+ * Yönetici: tamamlanmış randevunun ücret / ödeme yöntemi / süresini düzeltir.
+ * appointments + revenue_entries + payment_corrections tek transaction içinde
+ * (correct_appointment_payment) güncellenir; gelir kaydının tarihi değişmez.
+ */
+export async function correctAppointmentPayment(
+  appointmentId: string,
+  input: CorrectPaymentPayload
+) {
+  const session = await requireSession();
+  if (session.role !== "admin") {
+    throw new Error("Bu işlem için yönetici olmalısınız.");
+  }
+
+  const amount = roundMoney(Number(input.final_price));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error("Geçerli bir tutar girin (TL).");
+  }
+  if (!isPaymentMethod(input.payment_method)) {
+    throw new Error("Ödeme yöntemi seçin.");
+  }
+  const actualDur =
+    input.actual_duration != null &&
+    Number.isFinite(input.actual_duration) &&
+    input.actual_duration > 0
+      ? Math.round(input.actual_duration)
+      : null;
+  const reason = sanitizeOptionalNotes(
+    input.reason,
+    LIMITS.paymentCorrectionReason
+  );
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("correct_appointment_payment", {
+    p_appointment_id: appointmentId,
+    p_amount: amount,
+    p_payment_method: input.payment_method,
+    p_actual_duration: actualDur,
+    p_reason: reason,
+  });
+
+  if (error) {
+    if (isPgrstFunctionNotFound(error, "correct_appointment_payment")) {
+      throw new Error(PAYMENT_CORRECTION_MIGRATION_MISSING);
+    }
+    throw new Error(error.message || "Ödeme düzeltilemedi.");
+  }
+
+  revalidatePath("/appointments");
+  revalidatePath("/customers");
+  revalidatePath("/dashboard");
+  revalidatePath("/finance");
+  revalidatePath("/staff");
+}
+
+/** Yönetici: randevunun ödeme düzeltme geçmişi (en yeni önce). */
+export async function listPaymentCorrections(
+  appointmentId: string
+): Promise<PaymentCorrectionRow[]> {
+  const session = await requireSession();
+  if (session.role !== "admin") return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("payment_corrections")
+    .select(
+      "id, created_at, old_amount, new_amount, old_payment_method, new_payment_method, old_actual_duration, new_actual_duration, reason, corrected_by_email"
+    )
+    .eq("appointment_id", appointmentId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    if (isPgrstRelationNotFound(error, "payment_corrections")) return [];
+    throw error;
+  }
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    created_at: r.created_at,
+    old_amount: r.old_amount != null ? Number(r.old_amount) : null,
+    new_amount: Number(r.new_amount),
+    old_payment_method: r.old_payment_method ?? null,
+    new_payment_method: r.new_payment_method,
+    old_actual_duration:
+      r.old_actual_duration != null ? Number(r.old_actual_duration) : null,
+    new_actual_duration:
+      r.new_actual_duration != null ? Number(r.new_actual_duration) : null,
+    reason: r.reason ?? null,
+    corrected_by_email: r.corrected_by_email ?? null,
+  }));
 }
 
 function normalizeSearchDateRange(start: string, end: string): {

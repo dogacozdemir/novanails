@@ -27,6 +27,7 @@ import { Palmtree, UserMinus } from "lucide-react";
 
 import {
   getBoardData,
+  getEnrichedAppointmentById,
   recordPaymentAndComplete,
   searchAppointmentsAdvanced,
   updateAppointmentStatus,
@@ -594,6 +595,15 @@ export function AppointmentsBoard({
     syncSheetAppointments,
     dateRange.start,
   ]);
+
+  /** Ödeme düzeltmesi: liste tazelenir, açık randevu (tarihten bağımsız) yeniden okunur. */
+  const sheetApptId = sheetAppt?.id ?? null;
+  const handlePaymentCorrected = useCallback(async () => {
+    await applyCommittedSearch();
+    if (!sheetApptId) return;
+    const res = await getEnrichedAppointmentById(sheetApptId);
+    if (res.appointment) setSheetAppt(res.appointment);
+  }, [applyCommittedSearch, sheetApptId]);
 
   const handleCreateSuccess = useCallback(async () => {
     await refresh();
@@ -1175,6 +1185,7 @@ export function AppointmentsBoard({
         onCancelDialogOpen={() => setCancelOpen(true)}
         restrictStaffWorkflow={isStaffSession}
         onAppointmentEdited={handleAppointmentEdited}
+        onPaymentCorrected={handlePaymentCorrected}
       />
 
       <CancelAppointmentConfirm

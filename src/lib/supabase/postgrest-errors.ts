@@ -11,3 +11,14 @@ export function isPgrstRelationNotFound(
   if (e.code !== "PGRST205") return false;
   return String(e.message ?? "").includes(relationSubstr);
 }
+
+/** PostgREST şema önbelleğinde RPC fonksiyonu yok (migration uygulanmamış). */
+export function isPgrstFunctionNotFound(
+  error: unknown,
+  functionSubstr: string
+): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { code?: string; message?: string };
+  if (e.code !== "PGRST202") return false;
+  return String(e.message ?? "").includes(functionSubstr);
+}

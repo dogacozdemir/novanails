@@ -41,4 +41,5 @@ export const LIMITS = {
   serviceName: 160,
   staffName: 120,
   staffColorCode: 16,
+  paymentCorrectionReason: 1000,
 } as const;

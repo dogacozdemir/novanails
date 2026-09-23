@@ -314,9 +314,64 @@ export type Database = {
         };
         Relationships: [];
       };
+      payment_corrections: {
+        Row: {
+          id: string;
+          appointment_id: string;
+          old_amount: number | null;
+          new_amount: number;
+          old_payment_method: PaymentMethod | null;
+          new_payment_method: PaymentMethod;
+          old_actual_duration: number | null;
+          new_actual_duration: number | null;
+          reason: string | null;
+          corrected_by: string | null;
+          corrected_by_email: string | null;
+          created_at: string;
+        };
+        /** Yalnızca correct_appointment_payment() fonksiyonu yazar. */
+        Insert: {
+          id?: string;
+          appointment_id: string;
+          old_amount?: number | null;
+          new_amount: number;
+          old_payment_method?: PaymentMethod | null;
+          new_payment_method: PaymentMethod;
+          old_actual_duration?: number | null;
+          new_actual_duration?: number | null;
+          reason?: string | null;
+          corrected_by?: string | null;
+          corrected_by_email?: string | null;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: "payment_corrections_appointment_id_fkey";
+            columns: ["appointment_id"];
+            referencedRelation: "appointments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      is_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      correct_appointment_payment: {
+        Args: {
+          p_appointment_id: string;
+          p_amount: number;
+          p_payment_method: PaymentMethod;
+          p_actual_duration?: number | null;
+          p_reason?: string | null;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {
       appointment_status: AppointmentStatus;
       expense_category: ExpenseCategory;

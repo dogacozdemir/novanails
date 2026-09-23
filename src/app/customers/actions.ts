@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getSessionProfile, requireSession } from "@/lib/auth/session-profile";
 import { createClient } from "@/lib/supabase/server";
-import type { AppointmentStatus } from "@/types/database";
+import type { AppointmentStatus, PaymentMethod } from "@/types/database";
 import { sumMoney } from "@/lib/money";
 import {
   LIMITS,
@@ -129,6 +129,8 @@ export type HistoryAppointment = {
   service_name: string;
   service_price: number;
   paid_amount: number | null;
+  /** Tamamlamada seçilen ödeme kanalı — appointments.payment_method */
+  payment_method: PaymentMethod | null;
   /** Randevuya özel not — appointments.notes */
   appointment_notes: string | null;
 };
@@ -169,7 +171,7 @@ export async function getCustomerWithHistory(customerId: string): Promise<{
   let apptQuery = supabase
     .from("appointments")
     .select(
-      "id, appointment_date, appointment_time, status, staff_id, service_id, notes"
+      "id, appointment_date, appointment_time, status, staff_id, service_id, notes, payment_method"
     )
     .eq("customer_id", customerId);
 
@@ -243,6 +245,7 @@ export async function getCustomerWithHistory(customerId: string): Promise<{
       service_name: vf?.name ?? "—",
       service_price: vf?.price ?? 0,
       paid_amount: paid ?? null,
+      payment_method: row.payment_method ?? null,
       appointment_notes: row.notes ?? null,
     };
   });

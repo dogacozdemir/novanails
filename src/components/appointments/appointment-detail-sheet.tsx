@@ -6,6 +6,7 @@ import ClipboardCheck from "lucide-react/dist/esm/icons/clipboard-check.mjs";
 import Clock from "lucide-react/dist/esm/icons/clock.mjs";
 import Loader2 from "lucide-react/dist/esm/icons/loader-2.mjs";
 import MessageCircle from "lucide-react/dist/esm/icons/message-circle.mjs";
+import Pencil from "lucide-react/dist/esm/icons/pencil.mjs";
 import Phone from "lucide-react/dist/esm/icons/phone.mjs";
 import Send from "lucide-react/dist/esm/icons/send.mjs";
 import Slash from "lucide-react/dist/esm/icons/slash.mjs";
@@ -26,9 +27,11 @@ import { toast } from "sonner";
 import {
   deleteAppointment,
   getAvailableSlots,
+  listPaymentCorrections,
   updateAppointmentFull,
   type CustomerBrief,
   type EnrichedAppointment,
+  type PaymentCorrectionRow,
   type RecordPaymentPayload,
   type ServiceBrief,
   type StaffBrief,
@@ -54,6 +57,7 @@ import {
   NOVA_GLASS_DIALOG_OVERLAY_STACKED,
   NOVA_GLASS_DIALOG_PANEL_STACKED,
 } from "@/lib/glass-dialog-classes";
+import { paymentMethodLabel } from "@/lib/payment-method-labels";
 import { cn } from "@/lib/utils";
 
 import { formatDateTRLong, normalizeDisplayTime } from "@/lib/time";
@@ -65,6 +69,33 @@ const AppointmentCheckoutDialog = dynamic(
     ),
   { ssr: false, loading: () => null }
 );
+
+const AppointmentPaymentCorrectionDialog = dynamic(
+  () =>
+    import(
+      "@/components/appointments/appointment-payment-correction-dialog"
+    ).then((m) => m.AppointmentPaymentCorrectionDialog),
+  { ssr: false, loading: () => null }
+);
+
+function formatTL(n: number) {
+  return `${n.toLocaleString("tr-TR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })} ₺`;
+}
+
+/** Düzeltme zamanı — İstanbul saatiyle gün ay yıl, saat:dakika */
+function formatCorrectionTimestamp(iso: string) {
+  return new Intl.DateTimeFormat("tr-TR", {
+    timeZone: "Europe/Istanbul",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
 
 const CustomerCombobox = dynamic(
   () =>
@@ -153,6 +184,8 @@ type AppointmentDetailSheetProps = {
   sessionRole?: UserRole;
   /** Randevu güncelleme sonrası tahta yenileme */
   onAppointmentEdited?: () => void | Promise<void>;
+  /** Ödeme düzeltmesi sonrası: açık randevuyu ve listeyi tazele */
+  onPaymentCorrected?: () => void | Promise<void>;
 };
 
 export function AppointmentDetailSheet({
@@ -171,8 +204,11 @@ export function AppointmentDetailSheet({
   restrictStaffWorkflow = false,
   sessionRole = "admin",
   onAppointmentEdited,
+  onPaymentCorrected,
 }: AppointmentDetailSheetProps) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [corrections, setCorrections] = useState<PaymentCorrectionRow[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [editStaffId, setEditStaffId] = useState("");
   const [editCustomerId, setEditCustomerId] = useState<string | null>(null);
@@ -196,12 +232,41 @@ export function AppointmentDetailSheet({
 
   useEffect(() => {
     setCheckoutOpen(false);
+    setCorrectionOpen(false);
+    setCorrections([]);
     setEditOpen(false);
     setDeletePermOpen(false);
     setAvailableSlots(null);
     setCustomerHistory([]);
     setHistoryOpen(false);
   }, [appointment?.id]);
+
+  /** Yönetici + tamamlanmış randevu: ödeme değerleri değiştikçe geçmiş yeniden okunur. */
+  const correctionsKey =
+    open && sessionRole === "admin" && appointment?.status === "completed"
+      ? [
+          appointment.id,
+          appointment.final_price ?? "",
+          appointment.payment_method ?? "",
+          appointment.actual_duration ?? "",
+        ].join("|")
+      : null;
+
+  useEffect(() => {
+    if (!correctionsKey) return;
+    const appointmentId = correctionsKey.split("|")[0];
+    let cancelled = false;
+    void listPaymentCorrections(appointmentId)
+      .then((rows) => {
+        if (!cancelled) setCorrections(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setCorrections([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [correctionsKey]);
 
   useEffect(() => {
     if (!open) {
@@ -603,6 +668,21 @@ export function AppointmentDetailSheet({
                     Tamamlandı.
                   </p>
                 )}
+                {appointment.status === "completed" ? (
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
+                    <span>
+                      <span className="text-muted-foreground">Ödeme: </span>
+                      <span className="font-medium">
+                        {paymentMethodLabel(appointment.payment_method)}
+                      </span>
+                    </span>
+                    {!staffLimited && corrections.length > 0 ? (
+                      <span className="rounded-full bg-amber-400/18 px-2 py-0.5 text-[10px] font-semibold text-amber-900 ring-1 ring-amber-400/35 dark:text-amber-100">
+                        Düzeltildi
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                   Planlanan blok: {appointment.planned_duration} dk
                 </p>
@@ -627,6 +707,50 @@ export function AppointmentDetailSheet({
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                     {appointment.customer.notes}
                   </p>
+                </div>
+              ) : null}
+
+              {sessionRole === "admin" && corrections.length > 0 ? (
+                <div className="space-y-2 border-t border-white/10 pt-3 dark:border-white/[0.08]">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
+                    Ödeme düzeltmeleri
+                  </p>
+                  <ul className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                    {corrections.map((c) => (
+                      <li
+                        key={c.id}
+                        className="rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] px-3 py-2.5 text-xs"
+                      >
+                        <p className="tabular-nums text-muted-foreground">
+                          {formatCorrectionTimestamp(c.created_at)}
+                          {c.corrected_by_email
+                            ? ` · ${c.corrected_by_email}`
+                            : ""}
+                        </p>
+                        <p className="mt-1 font-medium tabular-nums text-foreground">
+                          {c.old_amount != null ? formatTL(c.old_amount) : "—"}{" "}
+                          → {formatTL(c.new_amount)}
+                        </p>
+                        {c.old_payment_method !== c.new_payment_method ? (
+                          <p className="mt-0.5 text-foreground/85">
+                            {paymentMethodLabel(c.old_payment_method)} →{" "}
+                            {paymentMethodLabel(c.new_payment_method)}
+                          </p>
+                        ) : null}
+                        {c.old_actual_duration !== c.new_actual_duration ? (
+                          <p className="mt-0.5 text-foreground/85">
+                            Süre: {c.old_actual_duration ?? "—"} dk →{" "}
+                            {c.new_actual_duration ?? "—"} dk
+                          </p>
+                        ) : null}
+                        {c.reason ? (
+                          <p className="mt-1 leading-relaxed text-muted-foreground">
+                            {c.reason}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
             </div>
@@ -724,6 +848,21 @@ export function AppointmentDetailSheet({
                 "İşlemi Bitir"
               )}
             </Button>
+            {sessionRole === "admin" && appointment.status === "completed" ? (
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  BAR_H,
+                  "w-full justify-center rounded-xl border-[var(--glass-border)]"
+                )}
+                disabled={busy}
+                onClick={() => setCorrectionOpen(true)}
+              >
+                <Pencil className="mr-2 size-4" aria-hidden />
+                Ödemeyi düzelt
+              </Button>
+            ) : null}
             {!staffLimited ? (
               <Button
                 type="button"
@@ -750,6 +889,22 @@ export function AppointmentDetailSheet({
         restrictStaffWorkflow={staffLimited}
         onPayment={onPayment}
       />
+
+      {sessionRole === "admin" ? (
+        <AppointmentPaymentCorrectionDialog
+          open={correctionOpen}
+          onOpenChange={setCorrectionOpen}
+          appointment={appointment}
+          onCorrected={async () => {
+            const appointmentId = appointment.id;
+            await (onPaymentCorrected ?? onAppointmentEdited)?.();
+            const rows = await listPaymentCorrections(appointmentId).catch(
+              () => null
+            );
+            if (rows) setCorrections(rows);
+          }}
+        />
+      ) : null}
 
       <Dialog.Root open={editOpen} onOpenChange={setEditOpen}>
         <Dialog.Portal>

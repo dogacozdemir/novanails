@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Textarea } from "@/components/ui/textarea";
+import { paymentMethodLabel } from "@/lib/payment-method-labels";
 import { formatDateTRLong, normalizeDisplayTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { AppointmentStatus, UserRole } from "@/types/database";
@@ -178,6 +179,11 @@ export function CustomerDetailView({
     }
   };
 
+  const handlePaymentCorrected = async () => {
+    if (sheetAppt) await syncSheetFromFetch(sheetAppt.id);
+    refreshPage();
+  };
+
   const sheetTimeLabel = sheetAppt
     ? normalizeDisplayTime(sheetAppt.appointment_time)
     : "";
@@ -273,7 +279,7 @@ export function CustomerDetailView({
                 <th className="px-4 py-3">Durum</th>
                 <th className="min-w-[140px] px-4 py-3">Randevu notu</th>
                 <th className="px-4 py-3 text-right">
-                  {financeHidden ? "---" : "Ücret"}
+                  {financeHidden ? "Ödeme" : "Ücret"}
                 </th>
               </tr>
             </thead>
@@ -343,7 +349,13 @@ export function CustomerDetailView({
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right font-mono text-muted-foreground">
                       {financeHidden ? (
-                        "---"
+                        a.status === "completed" ? (
+                          <span className="font-sans text-xs font-medium text-foreground">
+                            {paymentMethodLabel(a.payment_method)}
+                          </span>
+                        ) : (
+                          "---"
+                        )
                       ) : a.paid_amount != null ? (
                         <span className="font-medium text-foreground">
                           {a.paid_amount.toLocaleString("tr-TR", {
@@ -351,6 +363,9 @@ export function CustomerDetailView({
                             maximumFractionDigits: 2,
                           })}{" "}
                           ₺
+                          <span className="block font-sans text-[10px] font-normal text-muted-foreground">
+                            {paymentMethodLabel(a.payment_method)}
+                          </span>
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">
@@ -392,6 +407,7 @@ export function CustomerDetailView({
         onCancelDialogOpen={() => setCancelOpen(true)}
         restrictStaffWorkflow={isStaffSession}
         onAppointmentEdited={refreshPage}
+        onPaymentCorrected={handlePaymentCorrected}
       />
 
       <CancelAppointmentConfirm
